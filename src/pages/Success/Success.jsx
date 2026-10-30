@@ -1,5 +1,5 @@
 import useQuestionStore from "../../store/zustand";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import AnimateProvider from "../../components/AnimateProvider/AnimateProvider";
 import Question from "../../components/Questions/Questions";
@@ -13,13 +13,17 @@ function Success() {
     question: allQuestion,
   } = useQuestionStore();
   const navigate = useNavigate();
-  const score = (trueAnswer * 100) / 5;
+  const score = allQuestion.length
+    ? Math.round((trueAnswer * 100) / allQuestion.length)
+    : 0;
   const indxColor =
     score >= 80 ? "#10b981" : score >= 60 ? "#F59E0B" : "#dc2626";
 
   useEffect(() => {
     setTimeStamp(0);
   }, []);
+
+  if (!allQuestion.length) return <Navigate to="/" replace />;
 
   const handleClick = () => {
     resetQuestion();

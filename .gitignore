@@ -26,3 +26,16 @@ dist-ssr
 
 # misc
 .env
+.env.*
+!.env.example
+*service-account*.json
+firebase-debug.log
+
+playwright-report/
+test-results/
+
+firestore-debug.log
+ui-debug.log
+
+**/*firebase-adminsdk*.json
+**/*credentials*.json

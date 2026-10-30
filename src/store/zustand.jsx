@@ -16,11 +16,21 @@ const useQuestionStore = create(
         try {
           const response = await fetch(`https://opentdb.com/api.php${query}`);
 
+          if (!response.ok)
+            throw new Error("Trivia service is unavailable. Please retry.");
           const data = await response.json();
+          if (data.response_code !== 0 || !data.results?.length)
+            throw new Error(
+              "No trivia questions are available. Try a different category.",
+            );
 
-          return set((state) => ({ ...state, question: data.results }));
+          return set((state) => ({
+            ...state,
+            question: data.results,
+            error: null,
+          }));
         } catch (error) {
-          return set((state) => ({ ...state, error: error }));
+          return set((state) => ({ ...state, error: error.message }));
         }
       },
 
@@ -49,6 +59,8 @@ const useQuestionStore = create(
         set((state) => ({
           ...state,
           question: [],
+          userAnswer: [],
+          totalTime: 0,
           trueAnswer: 0,
           falseAnswer: 0,
           error: null,
@@ -67,8 +79,8 @@ const useQuestionStore = create(
     }),
     {
       name: "question-storage",
-    }
-  )
+    },
+  ),
 );
 
 export default useQuestionStore;

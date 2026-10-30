@@ -22,7 +22,7 @@ function RegisterPage() {
       {data?.type === "ERROR" && (
         <p className="text-rose-700 text-xs font-bold mb-3">
           {" "}
-          Error : {data.msg.split("(")[1].replace(")", "")}
+          Error : {data.msg}
         </p>
       )}
 
@@ -34,8 +34,8 @@ function RegisterPage() {
 export async function action({ request }) {
   const formData = await request.formData();
   const email = formData.get("email").trim();
-  const password = formData.get("password").trim();
-  const confirmPwd = formData.get("confirmPw").trim();
+  const password = formData.get("password");
+  const confirmPwd = formData.get("confirmPw");
 
   if (password !== confirmPwd)
     return {

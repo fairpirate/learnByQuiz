@@ -1,4 +1,5 @@
 import he from "he";
+import { useMemo } from "react";
 import Option from "../Option/Option";
 import useQuestionStore from "../../store/zustand";
 
@@ -8,9 +9,14 @@ function Question({ id, handleClick, singleQuestion, summary }) {
 
   const userAnswer = allUserAnswer.find((ans) => ans.question === question);
 
-  const options = incorrect_answers
-    .concat(correct_answer)
-    .sort(() => Math.random() - 0.5);
+  const options = useMemo(() => {
+    const items = [...incorrect_answers, correct_answer];
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [items[i], items[j]] = [items[j], items[i]];
+    }
+    return items;
+  }, [question, incorrect_answers, correct_answer]);
 
   return (
     <section>

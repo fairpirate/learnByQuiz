@@ -1,5 +1,5 @@
 import useQuestionStore from "../../store/zustand";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import TimeStamp from "../../components/TimeStamp/TimeStamp";
 import { useEffect } from "react";
 import AnimateProvider from "../../components/AnimateProvider/AnimateProvider";
@@ -25,6 +25,8 @@ function SingleQuestion() {
   }, [id]);
 
   const singleQuestion = allQuestion?.[page - 1];
+  if (!singleQuestion)
+    return <Navigate to={allQuestion.length ? "/finish" : "/"} replace />;
   const { correct_answer } = singleQuestion;
 
   const handleClick = (value) => {
@@ -41,7 +43,7 @@ function SingleQuestion() {
     nextPage();
 
     navigate(
-      page === allQuestion.length ? "/finish" : `/question/${Number(id) + 1}`
+      page === allQuestion.length ? "/finish" : `/question/${Number(id) + 1}`,
     );
   };
 

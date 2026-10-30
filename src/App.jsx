@@ -1,6 +1,6 @@
 import { Types, Level } from "./constant";
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import useQuestionStore from "./store/zustand";
 import AnimateProvider from "./components/AnimateProvider/AnimateProvider";
 
@@ -25,6 +25,16 @@ function App() {
         Welcome to <span>Quiz 2 Learn</span>
       </h1>
 
+      <Link
+        to="/journey"
+        className="mb-8 rounded-xl border border-green-200 bg-green-50 p-5 text-green-800"
+      >
+        Explore Taste-Based Learning →
+        <span className="block mt-2 text-xs">
+          Discover your interests with Qloo and create a personalized AI
+          learning journey.
+        </span>
+      </Link>
       <h3 className="text-xs md:text-sm text-neutral-600 font-semibold mb-3">
         Select type{" "}
       </h3>

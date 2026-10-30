@@ -23,7 +23,7 @@ function LoginPage() {
       {data?.type === "ERROR" && (
         <p className="text-rose-700 text-xs font-bold mb-3">
           {" "}
-          Error : {data.message.split("(")[1].replace(")", "")}
+          Error : {data.message}
         </p>
       )}
       <LoginForm loading={navigation.state === "submitting"} />
@@ -34,7 +34,7 @@ function LoginPage() {
 export async function action({ request }) {
   const formData = await request.formData();
   const email = formData.get("email").trim();
-  const password = formData.get("password").trim();
+  const password = formData.get("password");
 
   try {
     const user = await handleLogin(email, password);
