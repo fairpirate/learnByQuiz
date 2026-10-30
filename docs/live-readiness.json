@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-10-30T20:07:01.293Z",
+  "configuration": {
+    "ok": true,
+    "errors": [],
+    "warnings": [
+      "The service account belongs to a different project; verify intentional cross-project IAM access"
+    ]
+  },
+  "checks": [
+    {
+      "name": "Firebase Admin target-project access",
+      "status": "failed",
+      "durationMs": 681,
+      "code": "QUOTA_PROJECT_DENIED",
+      "message": "Grant Service Usage Consumer to the service account in the configured Google quota project."
+    },
+    {
+      "name": "Firestore target-project access",
+      "status": "failed",
+      "durationMs": 1659,
+      "code": "PERMISSION_DENIED",
+      "message": "The configured service account cannot access the target Firebase project."
+    },
+    {
+      "name": "Qloo authenticated Search and Insights",
+      "status": "passed",
+      "durationMs": 1889
+    },
+    {
+      "name": "LLM structured function call",
+      "status": "failed",
+      "durationMs": 871,
+      "code": "LLM_BILLING_REQUIRED",
+      "message": "The LLM provider reports exhausted credit or quota; update billing or the configured key."
+    }
+  ],
+  "ok": false
+}

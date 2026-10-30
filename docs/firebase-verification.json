@@ -1,0 +1,35 @@
+{
+  "checkedAt": "2026-10-30T20:23:27.714Z",
+  "project": "learnbyquiz-c295d",
+  "checks": [
+    {
+      "name": "Email/Password sign-in and real ID-token verification",
+      "status": "passed"
+    },
+    {
+      "name": "Unauthenticated and invalid-token API access denied",
+      "status": "passed"
+    },
+    {
+      "name": "Real Qloo-backed profile create, read, edit and owner isolation",
+      "status": "passed"
+    },
+    {
+      "name": "Deployed Firestore rules deny anonymous and authenticated direct reads/writes",
+      "status": "passed"
+    },
+    {
+      "name": "Saved quiz start, server-side grading and concurrent idempotent Firestore transaction",
+      "status": "passed"
+    },
+    {
+      "name": "Actual Firebase refresh-token revocation is enforced",
+      "status": "passed"
+    },
+    {
+      "name": "Temporary test account and record cleanup",
+      "status": "passed"
+    }
+  ],
+  "ok": true
+}

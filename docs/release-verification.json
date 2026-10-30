@@ -1,0 +1,46 @@
+{
+  "checkedAt": "2026-10-30T20:06:27.945Z",
+  "checks": [
+    {
+      "name": "test",
+      "status": "passed",
+      "durationMs": 296
+    },
+    {
+      "name": "test:emulator",
+      "status": "passed",
+      "durationMs": 10862
+    },
+    {
+      "name": "test:browser",
+      "status": "passed",
+      "durationMs": 5969
+    },
+    {
+      "name": "build",
+      "status": "passed",
+      "durationMs": 421
+    },
+    {
+      "name": "format:check",
+      "status": "passed",
+      "durationMs": 299
+    },
+    {
+      "name": "test:live:qloo",
+      "status": "passed",
+      "durationMs": 15155
+    },
+    {
+      "name": "verify:live",
+      "status": "failed",
+      "durationMs": 5471
+    },
+    {
+      "name": "test:live:fullstack",
+      "status": "blocked",
+      "reason": "Release preconditions failed; no full-stack test accounts were created."
+    }
+  ],
+  "ok": false
+}
