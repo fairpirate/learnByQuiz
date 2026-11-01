@@ -20,7 +20,8 @@ results are in [live-readiness.json](live-readiness.json) and
 | Full live quiz matrix | Passed all six difficulty/format cases, adaptive generation, grading, dashboard, revocation and cleanup; 14 test results including their parent |
 | Dependency audit | Zero reported vulnerabilities; patched glob override for transitive rimraf |
 | Formatting and diff checks | Passed |
-| Docker Compose configuration | Validated for the configured domain |
+| Docker Compose configuration | Validated: only the app, published on 127.0.0.1:13001 |
+| Nginx and VPS preflight regressions | Seven checks passed with isolated Nginx 1.30.6 and mocked VPS port/network allocation; actual VPS application pending |
 | Docker image execution | Not verified: the local Docker daemon is stopped |
 
 The final cloud suite creates two isolated test users, exercises actual planning,
@@ -61,9 +62,11 @@ that does not match the hostname. Deployment and public browser verification are
 pending server SSH access. See [deployment verification](deployment-verification.json)
 and the [Docker deployment runbook](deployment.md).
 
-The Compose package includes Caddy HTTPS configuration and persistent certificate
-storage. Check existing services using ports 80/443 before starting it on the
-server. No remote containers or unrelated services were changed here.
+The Compose package binds only `127.0.0.1:13001` and includes named virtual hosts
+for the host's existing Nginx on ports 80/443. A read-only preflight checks port
+and network conflicts. HTTP bootstrap, Certbot webroot issuance and TLS configs
+are provided separately. No remote containers or unrelated services were changed;
+SSH authentication as `root@162.35.172.158` was denied.
 
 Keep one API process initially. Shared rate-limit/lock storage and a durable job
 queue are required before horizontal scaling. Process crashes do not resume

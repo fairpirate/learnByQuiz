@@ -1,64 +1,51 @@
-# Single-process deployment
+# Deploy on the existing Nginx VPS
 
-The supported initial deployment is one Node process behind HTTPS, using the
-configured Firebase, Qloo and NVIDIA services. Keep instance count at one until
-rate-limit storage and generation locks are shared. The host must allow outgoing
-HTTPS to the configured providers.
+Target: `learnbyquiz.spiritedrobot.in` on `162.35.172.158`, using Linux Docker
+Compose and the host's existing Nginx. Keep one app replica.
 
-## Prepare and verify
+| Component | Binding |
+| --- | --- |
+| Existing host Nginx | Existing ports 80/443, selected by hostname |
+| LearnByQuiz on the host | **127.0.0.1:13001**, accessible locally only |
+| Node inside the app container | 3001, unpublished directly |
+| Dedicated Docker gateway | 172.30.0.1 on 172.30.0.0/24 |
 
-Use Node 22.18 or newer. Supply public Firebase `VITE_*` settings at build time.
-Store backend secrets in the host's secret manager, or an ignored `.env` readable
-only by the service user. Use workload identity where available; otherwise keep
-the Admin credential file outside this checkout and image.
+Port 13001 was absent from the supplied `ss -lntu` snapshot. The snapshot is not
+a live reservation: run the preflight on the VPS immediately before installation.
+The deployment does not claim host ports 3002, 4000, 4100, 8080, 14000 or 18080.
+Compose starts only the app; it does not start Caddy or another public proxy.
+Existing services and firewall rules remain under the VPS operator's control.
+
+## 1. Inspect the host
+
+From the project checkout on the VPS, with Docker access:
 
 ```sh
-npm ci
-npm run build
-npm run test:production
-npm run audit:production
-npm run verify:live
-npm run migrate
-npm start
+sudo ss -lntup
+sudo nginx -t
+sudo nginx -T 2>&1 | grep -n 'server_name.*learnbyquiz.spiritedrobot.in'
+python3 deploy/check-vps.py
 ```
 
-Before releasing changes, run `npm run test:live:all` with the documented emulator
-and browser prerequisites. It creates and cleans up isolated test accounts. CI
-runs the local release gate on pushes and pull requests without cloud secrets.
+The grep command returns no matches for a new hostname. If there is an existing
+exact virtual host for this domain, locate and back up that file, then update
+that domain's block; do not enable a second block for the same domain. Keep the
+existing default and other domains' virtual hosts. Confirm Nginx is the process
+owning 80/443; the listener snapshot alone does not identify the process.
 
-## Configure the host
+The read-only preflight refuses occupied TCP 13001, Docker NAT port reservations,
+and conflicting Docker subnets or host routes. It never stops a process or
+changes a network. If the subnet conflicts, choose an unused subnet and update
+Compose's subnet, gateway, `TRUST_PROXY`, and the preflight constants together.
+If the port becomes occupied, update Compose's host binding, both Nginx upstreams
+and the preflight constant together. Recheck immediately before starting Docker;
+Docker's port allocation is the final conflict check.
 
-- Route the production HTTPS origin to the API's `PORT` (default 3001). Express
-  serves both the SPA and API; preserve `Authorization` headers.
-- Add that hostname to Firebase Authentication's authorized domains.
-- Restrict direct ingress to the API when using a reverse proxy. Set
-  `TRUST_PROXY` to the actual proxy IPs or CIDRs, comma-separated. For an Nginx
-  proxy on the same host, use `TRUST_PROXY=loopback`. The proxy must overwrite
-  forwarding headers. Leave this variable blank when clients connect directly.
-- Set the proxy response timeout to at least 240 seconds and the process
-  termination grace period to at least 250 seconds. Use a supervisor that
-  restarts failed processes and sends SIGTERM for shutdown.
-- Probe `GET /api/health` for process liveness. This endpoint does not make
-  provider requests. Use `npm run verify:live` for explicit dependency checks.
-- Collect stdout logs and alert on repeated 5xx responses, failed generation,
-  provider quota exhaustion, and health-check failures. Enable Firestore backup
-  retention appropriate to your deployment and verify a restore before launch.
+## 2. Prepare configuration and start the app
 
-Production startup rejects missing backend configuration, invalid ports,
-emulator routing and missing built assets. Backend runtime does not require
-the build-time `VITE_*` variables. API responses use `no-store`; HTML revalidates,
-and hashed Vite assets use immutable caching.
-
-## Container
-
-`compose.yaml` builds the app and starts a Caddy HTTPS proxy. Only Caddy's ports
-80/443 are published. Certificate state persists in named volumes, and the app
-trusts only Caddy's fixed address on their dedicated Docker network. Do not attach
-other containers to this network. If `172.30.0.0/24` conflicts with your server's
-networks, update the subnet, Caddy address and `TRUST_PROXY` together.
-
-On the server, install Docker Engine and the Compose plugin, copy the source and
-lockfile, and provide an ignored `.env` containing your configuration. Add:
+Install Docker Engine, its Compose plugin, Python 3 and Certbot using your VPS
+OS's package manager. Nginx is already running; preserve its installation and
+configuration. Copy the project checkout and configure its ignored `.env`:
 
 ```dotenv
 DOMAIN=learnbyquiz.spiritedrobot.in
@@ -66,47 +53,116 @@ APP_IMAGE=learnbyquiz:release-2026-11-01
 GOOGLE_APPLICATION_CREDENTIALS=/etc/learnbyquiz/firebase-admin.json
 ```
 
-Point the domain's DNS to the server and allow inbound ports 80 and 443. Add the
-domain in Firebase Auth. The credential path above is the **host** path; Compose
-mounts it read-only at `/run/secrets/firebase_admin` for the app alone. The
-container runs as UID/GID 1000; that user needs read access to the source file.
-Have the server administrator install a dedicated copy with owner 1000:1000 and
-mode 0400. Compose file secrets preserve host permissions. Keep the host `.env`
-restricted to the deployment operator. Do not print `docker compose config`
-without `--quiet`, because resolved configuration contains secrets.
+Include the existing public Firebase build values and backend Firebase/Qloo/LLM
+settings described in `.env.example`. Restrict `.env` to the deployment operator.
+The credential path is the host path. Compose mounts it read-only for the app at
+`/run/secrets/firebase_admin`. The container runs as UID/GID 1000; install a
+separate credential copy readable by UID 1000 (owner 1000:1000, mode 0400).
+Compose file secrets preserve host permissions. Keep credentials outside the
+checkout and image. Do not display resolved Compose configuration without
+`--quiet`, because it contains runtime secrets.
 
 ```sh
 docker compose config --quiet
+python3 deploy/check-vps.py
 docker compose build --pull
 docker compose run --rm app node scripts/migrate.js
 docker compose up -d --wait --wait-timeout 120
 docker compose ps
-curl --fail https://learnbyquiz.spiritedrobot.in/api/health
+curl --fail http://127.0.0.1:13001/api/health
 ```
 
-Perform a browser sign-in and generate/submit a quiz through that HTTPS origin
-before opening access to users. Inspect `docker compose logs --tail 100 app
-proxy` when troubleshooting. The app has bounded logs, a read-only filesystem,
-dropped capabilities, resource limits, automatic restarts and a 250-second stop
-grace period. Keep exactly one app replica.
+The preflight is for first installation; an existing app instance correctly
+occupies 13001. For subsequent releases, verify `docker compose ps` owns that
+binding, then use `docker compose build --pull` and `docker compose up -d --wait
+--wait-timeout 120`. No port scan can guarantee availability during a later race.
+Never terminate an unrelated process to make this port available.
 
-Only public Firebase values become build arguments. Provider secrets are
-supplied at runtime. Do not copy `.env` or credentials into the image. Certificate
-provisioning requires working DNS and public access to the challenge ports; see
-the [official Caddy Docker instructions](https://caddyserver.com/docs/running#docker-compose)
-and [reverse proxy reference](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy).
+## 3. Bootstrap the domain's HTTP virtual host
 
-The Compose structure has been validated locally. Container execution still
-requires a running Docker daemon; no image execution or public HTTPS endpoint
-has been verified here.
+DNS A must point to `162.35.172.158`. Any AAAA record must point to a working IPv6
+address on this VPS. Ports 80/443 already serve Nginx; add a named virtual host
+inside that existing service. The supplied files are for inclusion in Nginx's
+`http` context, using the usual Debian/Ubuntu `sites-enabled` layout below. On
+other layouts use its existing include directory. Do not replace `nginx.conf`.
 
-## Rollback
+Back up an existing dedicated LearnByQuiz config before replacing it. For a new
+site, enable **only** the HTTP bootstrap config first; the TLS config references
+certificate files that do not exist until issuance:
 
-Keep the previous release artifact/image and public build settings. Stop new
-traffic, let requests drain, then restart the previous artifact with the same
-runtime secrets. This release adds no destructive migration. Validate health,
-sign-in and a saved quiz before reopening traffic.
+```sh
+sudo install -d -m 0755 /var/www/letsencrypt/.well-known/acme-challenge
+sudo install -m 0644 deploy/nginx/learnbyquiz-http.conf /etc/nginx/sites-available/learnbyquiz.conf
+sudo ln -s /etc/nginx/sites-available/learnbyquiz.conf /etc/nginx/sites-enabled/learnbyquiz.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
 
-The local release checks do not deploy infrastructure, configure a domain, issue
-a TLS certificate or verify a public hostname. These require the chosen hosting
-account and deployment target.
+Reuse an existing symlink for this same site if present. Resolve all syntax or
+conflicting-server-name warnings before reloading. Do not reload after a failed
+`nginx -t`. This bootstrap serves only ACME challenges; other paths return 503
+until HTTPS is ready. It adds no default server or wildcard domain.
+
+## 4. Issue the certificate and enable HTTPS
+
+Use Certbot's webroot authenticator with the running Nginx; it needs no extra
+listener or service stop and does not rewrite other sites' configuration:
+
+```sh
+sudo certbot certonly --webroot -w /var/www/letsencrypt --cert-name learnbyquiz.spiritedrobot.in -d learnbyquiz.spiritedrobot.in
+sudo install -m 0644 deploy/nginx/learnbyquiz.conf /etc/nginx/sites-available/learnbyquiz.conf
+sudo nginx -t && sudo systemctl reload nginx
+sudo install -d /etc/letsencrypt/renewal-hooks/deploy
+sudo install -m 0755 deploy/nginx/renew-certificate.sh /etc/letsencrypt/renewal-hooks/deploy/learnbyquiz
+sudo certbot renew --cert-name learnbyquiz.spiritedrobot.in --dry-run
+```
+
+Confirm the installed Certbot package's scheduled renewal is enabled. The deploy
+hook reloads Nginx after successful renewal of this certificate only, and only
+after a successful syntax check. Keep both ACME and HTTP-to-HTTPS routing active
+for future renewals. Existing unrelated certificates are unaffected by the hook.
+
+The HTTPS config preserves authorization, query strings and SPA paths. It
+replaces spoofable forwarding headers, disables API caching/buffering and uses
+240-second upstream read/send timeouts. Only the Docker gateway is trusted by
+Express. Nginx's normal per-host routing reuses its existing public listeners.
+See [Nginx virtual hosts](https://nginx.org/en/docs/http/server_names.html),
+[proxy directives](https://nginx.org/en/docs/http/ngx_http_proxy_module.html) and
+[Certbot webroot](https://eff-certbot.readthedocs.io/en/stable/using.html#webroot).
+
+## 5. Verify the public site and existing sites
+
+```sh
+curl --fail http://127.0.0.1:13001/api/health
+curl --fail https://learnbyquiz.spiritedrobot.in/api/health
+curl -I http://learnbyquiz.spiritedrobot.in/
+sudo ss -lntp 'sport = :13001'
+docker compose logs --tail 100 app
+```
+
+The public health request must succeed without disabling certificate validation;
+HTTP should redirect to HTTPS. Confirm the backend binds only 127.0.0.1, sign in
+through the domain, generate/submit a quiz and review the dashboard. Verify each
+existing domain still responds. Firebase authorization for this hostname has
+already been verified; browser sign-in through the deployed origin remains a
+required check. Set up log/health alerts and appropriate Firestore backups.
+
+The app keeps its health check, resource limits, dropped capabilities, read-only
+filesystem, bounded logs, automatic restarts and 250-second stop grace period.
+Do not scale replicas until rate-limit/lock storage and execution jobs are shared.
+
+## Validation and rollback
+
+Run `npm run test:live:all` before release. Nginx/preflight regressions can be run
+with `python3 -m unittest discover -s tests/deployment -v` when Nginx, OpenSSL and
+Python 3 are installed. Set `NGINX_BINARY` if Nginx is outside PATH. The Nginx test
+uses temporary high ports, a local test certificate and synthetic upstreams.
+It does not modify the host's installed Nginx or contact providers.
+
+Keep the previous image tag and this domain's previous config. To roll back,
+restore that image/config, run `nginx -t`, then reload Nginx and verify health and
+existing domains. Keep the loopback binding unchanged. Do not stop the shared
+Nginx service or remove unrelated containers/networks.
+
+Server execution remains pending: the attempted SSH connection as
+`root@162.35.172.158` was denied. No VPS configuration was changed. Docker image
+execution and the public certificate still require verification on the server.
