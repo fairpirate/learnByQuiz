@@ -13,6 +13,20 @@ const configured = {
   QLOO_BASE_URL: "https://hackathon.api.qloo.com",
   LLM_BASE_URL: "https://api.openai.com/v1",
 };
+test("NVIDIA readiness requires its own key and accepts provider model defaults", () => {
+  const env = { ...configured, LLM_PROVIDER: "nvidia", LLM_MODEL: "" };
+  assert.deepEqual(inspectConfiguration(env).errors, [
+    "NVIDIA_API_KEY is missing",
+  ]);
+  assert.equal(
+    inspectConfiguration({ ...env, NVIDIA_API_KEY: "private" }).ok,
+    true,
+  );
+  assert.equal(
+    inspectConfiguration({ ...env, LLM_PROVIDER: "typo" }).ok,
+    false,
+  );
+});
 test("release configuration checks required values and project consistency without exposing secrets", () => {
   assert.equal(inspectConfiguration(configured).ok, true);
   const missing = inspectConfiguration({ ...configured, LLM_API_KEY: "" });
