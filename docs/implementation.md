@@ -1,5 +1,8 @@
 # Plan review and implementation record
 
+Update, November 1, 2026: NVIDIA credentials and live function calling are verified. Production hardening adds bounded schema repair and reviewed revision, runtime validation, secure cache/proxy configuration, CI, and a single-server Docker Compose package for `learnbyquiz.spiritedrobot.in`. See [current production verification](production-readiness.md) and [deployment instructions](deployment.md). Earlier verification notes below are historical.
+
+
 Update, October 31, 2026: The later production-verification pass added a strict release runner, a full cloud test harness and real emulator/rules tests. Firebase permissions were subsequently repaired, and live Auth/Firestore/rules/transaction checks now pass; see [Firebase verification](firebase-verification.json). LLM API billing remains outstanding; see [production readiness](production-readiness.md).
 
 Earlier update, October 31, 2026: Qloo was subsequently verified with live hackathon requests and the new developer guide. See [Qloo verification](qloo-verification.md). Historical skipped-test notes below describe the original implementation run; Firebase/LLM verification remains outstanding.

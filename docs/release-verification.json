@@ -1,46 +1,60 @@
 {
-  "checkedAt": "2026-10-30T20:06:27.945Z",
+  "checkedAt": "2026-11-01T13:08:58.605Z",
   "checks": [
     {
       "name": "test",
       "status": "passed",
-      "durationMs": 296
+      "durationMs": 325
     },
     {
       "name": "test:emulator",
       "status": "passed",
-      "durationMs": 10862
+      "durationMs": 10402
     },
     {
       "name": "test:browser",
       "status": "passed",
-      "durationMs": 5969
+      "durationMs": 6575
     },
     {
       "name": "build",
       "status": "passed",
-      "durationMs": 421
+      "durationMs": 418
+    },
+    {
+      "name": "test:production",
+      "status": "passed",
+      "durationMs": 538
     },
     {
       "name": "format:check",
       "status": "passed",
-      "durationMs": 299
+      "durationMs": 309
+    },
+    {
+      "name": "audit:production",
+      "status": "passed",
+      "durationMs": 599
     },
     {
       "name": "test:live:qloo",
       "status": "passed",
-      "durationMs": 15155
+      "durationMs": 16086
+    },
+    {
+      "name": "test:live:firebase",
+      "status": "passed",
+      "durationMs": 40498
     },
     {
       "name": "verify:live",
-      "status": "failed",
-      "durationMs": 5471
+      "status": "passed",
+      "durationMs": 5492
     },
     {
       "name": "test:live:fullstack",
-      "status": "blocked",
-      "reason": "Release preconditions failed; no full-stack test accounts were created."
+      "status": "passed"
     }
   ],
-  "ok": false
+  "ok": true
 }

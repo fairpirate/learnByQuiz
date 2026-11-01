@@ -1,38 +1,79 @@
 # Production verification status
 
-**Firebase has been repaired and fully verified live.** The remaining release blocker is LLM API credit, so the complete AI workflow is not yet certified. Current Firebase results are in [firebase-verification.json](firebase-verification.json). Earlier [release-verification.json](release-verification.json) and [live-readiness.json](live-readiness.json) retain the original failed-run timestamps; their Firebase failures were subsequently resolved. Reports contain status metadata only, no credentials or Qloo payloads.
+Verified on November 1, 2026. Firebase, all Qloo categories and NVIDIA function
+calling pass live dependency checks. The complete live release gate passed, including all six quiz combinations and adaptive generation. Full results are recorded in
+[release-verification.json](release-verification.json); dependency and Firebase
+results are in [live-readiness.json](live-readiness.json) and
+[firebase-verification.json](firebase-verification.json).
 
-## Latest verified coverage
+## Release coverage
 
 | Area | Result |
 | --- | --- |
-| Backend/unit/HTTP regressions | Passed; includes provider billing/auth/rate failures, storage failures, malformed/oversized requests, ownership, answer validation, analytics and prototype-safe topic aggregation |
-| Real Firestore emulator | Passed: persisted profiles, cross-user isolation, concurrent idempotent grading and cleanup |
-| Firestore security rules in the official emulator | Passed: anonymous users, owners and other users cannot directly read/write the new private collections |
-| Desktop/mobile UI | Passed: personalized workflow and preserved classic quiz regression tests; external services mocked only in these browser tests |
-| Live Qloo | Passed: all 10 application search categories, all 10 Insights categories, cache reuse, fuzzy unmatched-query handling and invalid credentials; 23 subcases, 24 Node test results including their parent |
-| Production frontend build | Passed; route split retained, existing entry bundle size advisory remains |
-| Formatting/diff checks | Passed |
-| Dependency audit | No reported vulnerabilities after adding official Firebase rules testing |
-| Live Firebase Auth | Passed: actual Email/Password sign-in, ID-token verification, invalid-token rejection and revocation enforcement |
-| Live Firestore | Passed: profile CRUD, owner isolation, saved quizzes, concurrent idempotent grading, dashboard persistence, deployed read/write restrictions and cleanup |
-| Live LLM function calling | Failed: configured provider returns exhausted credit/quota |
-| Full live quiz matrix | Blocked until live dependencies pass; no test accounts were created |
-| Docker image execution | Not verified: the local Docker daemon is not running |
+| Backend/unit/HTTP regressions | 37 tests passed, including bounded repair, rejected-quiz persistence prevention, authentication, ownership, validation and grading |
+| Firestore emulator and rules | Passed persistence, concurrent idempotent grading and anonymous/owner/cross-user access denial |
+| Desktop/mobile browser workflows | Four tests passed; browser external services are mocked |
+| Production build and actual Node entry point | Passed SPA/assets, protected API, caching and graceful shutdown |
+| Live Qloo | Passed all 10 Search categories, all 10 Insights categories, cache and invalid credentials |
+| Live Firebase | Passed real sign-in, verified/revoked tokens, persistent CRUD, ownership, transactions, deployed rules and cleanup |
+| Live NVIDIA function calling | Passed validated named-tool requests |
+| Full live quiz matrix | Passed all six difficulty/format cases, adaptive generation, grading, dashboard, revocation and cleanup; 14 test results including their parent |
+| Dependency audit | Zero reported vulnerabilities; patched glob override for transitive rimraf |
+| Formatting and diff checks | Passed |
+| Docker Compose configuration | Validated for the configured domain |
+| Docker image execution | Not verified: the local Docker daemon is stopped |
 
-Both the emulator and the live Firebase suite pass. Actual anonymous and authenticated direct reads/writes were denied by deployed Firestore rules. Temporary test users and their isolated records were removed successfully. Quiz grading used synthetic test-only questions; it does not establish live LLM quiz generation.
+The final cloud suite creates two isolated test users, exercises actual planning,
+all six difficulty/format combinations, independent answer review, server-side
+grading, persistence, adaptive generation and access boundaries. It removes its
+records and accounts in `finally`; cleanup failure fails the suite. It never
+counts skipped live tests as success.
 
-## Exact remaining configuration work
+## Hardening completed
 
-The app/browser and updated service-account JSON now all target `learnbyquiz-c295d`. The previous cross-project access failures are resolved. Firebase Authentication, Firestore, and deployed data-access restrictions were verified through real provider calls and the application's API.
+Tool schemas now declare the server's length/count limits and the exact selected
+subject, difficulty and format. The NVIDIA adapter decodes JSON-encoded nested
+containers only where the schema requires arrays/objects, then applies the same
+strict semantic validator. It never coerces booleans into answer strings or
+truncates content. Other malformed responses get one repair attempt within the
+original 60-second tool deadline. Billing, authentication and rate-limit failures
+are not retried.
 
-For the LLM, ensure the account/project owning the exact `LLM_API_KEY` in `.env` has available API credit, or replace it with a funded key. The configured model is retained. The app now distinguishes exhausted billing from temporary throttling; it does not keep retrying a billing failure.
+A reviewer-rejected quiz gets one revision with feedback and a fresh review.
+A second rejection fails without persisting a quiz. Revision steps and review
+outcomes are recorded in the execution trace. Provider calls share a 180-second
+workflow deadline. AI review still cannot guarantee factual correctness.
 
-Email/Password sign-in, the default Firestore database, and deployed private data-access rules now pass. Preserve these settings when deploying.
+Production startup validates backend configuration, ports, real Firebase routing
+and built assets. Explicit proxy addresses/CIDRs support correct client limits.
+API responses cannot be cached, HTML revalidates, and hashed assets are immutable.
+The Docker image adds a process health check; Compose includes restarts, log
+rotation, a read-only app filesystem and a 250-second stop grace period. CI runs
+the local release gates without cloud credentials.
 
-## Reproduce the release verification
+## Deployment status
 
-Prerequisites: Node 22.18+, Java 21, Firebase CLI, Playwright Chromium and complete backend configuration.
+The target is **learnbyquiz.spiritedrobot.in** on a single Docker server. The
+hostname has been added to Firebase Auth's authorized domains and verified;
+existing domains were preserved. The additive schema migration has run.
+DNS resolves to `162.35.172.158`, but current public HTTPS presents a certificate
+that does not match the hostname. Deployment and public browser verification are
+pending server SSH access. See [deployment verification](deployment-verification.json)
+and the [Docker deployment runbook](deployment.md).
+
+The Compose package includes Caddy HTTPS configuration and persistent certificate
+storage. Check existing services using ports 80/443 before starting it on the
+server. No remote containers or unrelated services were changed here.
+
+Keep one API process initially. Shared rate-limit/lock storage and a durable job
+queue are required before horizontal scaling. Process crashes do not resume
+running executions. Check the selected provider's production terms and account
+limits before serving users.
+
+## Reproduce
+
+Prerequisites: Node 22.18+, Java 21, Firebase CLI, Playwright Chromium and complete
+backend configuration.
 
 ```sh
 npm ci
@@ -40,21 +81,7 @@ npx playwright install chromium
 npm run test:live:all
 ```
 
-This runs backend tests, an isolated `demo-learnbyquiz` Firestore emulator, desktop/mobile UI regressions, the production build, formatting, the live Qloo category matrix, and live dependency probes. Only after **every prerequisite passes** does it run `test:live:fullstack`. Failed configuration/dependency probes fail the command; no skipped live test is counted as a pass.
-
-The cloud suite uses real Firebase Email/Password sign-in and revoked-token checks, real Firestore persistence, actual Qloo calls and the configured LLM. It covers profile create/edit/delete, cross-user access denial, live browser-read restrictions, plan-only generation, multiple-choice and boolean quizzes at easy/medium/hard, answer-key redaction, server start timing, concurrent grading/idempotency, saved reviews, dashboard persistence, revision recommendations and adaptive difficulty.
-
-It creates two uniquely named test accounts, writes only under their UIDs, and removes their records/accounts in `finally`. A cleanup failure fails the suite. Do not run it with a production credential that is deliberately limited to user-read access; use an appropriately scoped verification credential for the temporary-account lifecycle.
-
-Commands can also run separately:
-
-```sh
-npm run verify:live           # Four strict dependency probes and a redacted report
-npm run test:live:qloo        # All app categories, bounded live requests
-npm run test:live:firebase    # Real Firebase checks, independent of LLM billing
-npm run test:live:fullstack   # Real cloud full workflow; creates/cleans isolated test users
-npm run test:emulator        # No production credentials passed to Firebase CLI
-npm run test:release         # Local regression/build gates only
-```
-
-The initial production deployment remains one Node API process. Shared rate-limit storage, a durable execution queue and automatic recovery after process loss are not implemented; these remain prerequisites for horizontal scaling. Graceful shutdown now allows up to 250 seconds for active bounded generation requests. Configure an equivalent termination grace period and ingress timeout on the chosen host. No deployment or cloud IAM changes were performed by this verification.
+For separate checks, use `npm test`, `npm run test:emulator`,
+`npm run test:browser`, `npm run build`, `npm run test:production`,
+`npm run audit:production`, `npm run verify:live`, and
+`npm run test:live:fullstack`. Reports contain status metadata, never credentials.

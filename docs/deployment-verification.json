@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-11-01T13:09:39.683Z",
+  "domain": "learnbyquiz.spiritedrobot.in",
+  "dnsAddress": "162.35.172.158",
+  "firebaseAuthorizedDomain": "verified",
+  "schemaMigration": "applied",
+  "composeConfiguration": "validated",
+  "containerExecution": {
+    "status": "not_verified",
+    "reason": "Local Docker daemon is not running"
+  },
+  "publicHttps": {
+    "status": "failed",
+    "code": "CERTIFICATE_HOSTNAME_MISMATCH"
+  },
+  "deployment": {
+    "status": "pending",
+    "reason": "Server SSH address and access details are required"
+  }
+}
