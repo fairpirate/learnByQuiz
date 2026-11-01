@@ -3,13 +3,13 @@ import { z } from "zod";
 import { AppError } from "../errors.js";
 import { planSchema, quizSchema } from "../schemas.js";
 import { analyzePerformance, recommend } from "./analytics.js";
-const str = { type: "string" };
+const str = { type: "string", minLength: 1, maxLength: 500 };
 const planParameters = {
   type: "object",
   properties: {
     title: str,
     subject: str,
-    concepts: { type: "array", items: str },
+    concepts: { type: "array", items: str, minItems: 1, maxItems: 5 },
     explanation: str,
   },
   required: ["title", "subject", "concepts", "explanation"],
@@ -20,12 +20,14 @@ const quizParameters = {
   properties: {
     questions: {
       type: "array",
+      minItems: 5,
+      maxItems: 5,
       items: {
         type: "object",
         properties: {
           question: str,
-          options: { type: "array", items: str },
-          correctIndex: { type: "integer" },
+          options: { type: "array", items: str, minItems: 2, maxItems: 4 },
+          correctIndex: { type: "integer", minimum: 0, maximum: 3 },
           explanation: str,
           topic: str,
           difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
@@ -47,6 +49,18 @@ const quizParameters = {
   required: ["questions"],
   additionalProperties: false,
 };
+function quizParametersFor(difficulty, format) {
+  const parameters = structuredClone(quizParameters);
+  const fields = parameters.properties.questions.items.properties;
+  fields.difficulty.enum = [difficulty];
+  fields.type.enum = [format];
+  const count = format === "boolean" ? 2 : 4;
+  fields.options.minItems = count;
+  fields.options.maxItems = count;
+  fields.correctIndex.maximum = count - 1;
+  if (format === "boolean") fields.options.enum = [["True", "False"]];
+  return parameters;
+}
 const reviewSchema = z.object({
   approved: z.boolean(),
   issues: z.array(z.string()).max(20),
@@ -55,7 +69,7 @@ const reviewParameters = {
   type: "object",
   properties: {
     approved: { type: "boolean" },
-    issues: { type: "array", items: str },
+    issues: { type: "array", items: str, maxItems: 20 },
   },
   required: ["approved", "issues"],
   additionalProperties: false,
@@ -73,6 +87,8 @@ export class LearningAgent {
     this.llm = llm;
   }
   async run(uid, input, planOnly = false) {
+    const deadline = Date.now() + 180000;
+    const callTool = (...args) => this.llm.callTool(...args, { deadline });
     const execution = {
       id: randomUUID(),
       status: "running",
@@ -138,10 +154,16 @@ export class LearningAgent {
         ? analytics.nextDifficulty
         : input.difficulty;
       const plan = await step("Plan educational subjects with AI", () =>
-        this.llm.callTool(
+        callTool(
           "create_learning_plan",
           "Map cultural context to a selected educational subject. Prioritize the recommended revision topic. Explain the cultural connection without claiming Qloo supplied educational facts.",
-          planParameters,
+          {
+            ...planParameters,
+            properties: {
+              ...planParameters.properties,
+              subject: { ...str, enum: profile.subjects },
+            },
+          },
           {
             profile,
             discoveries,
@@ -174,41 +196,71 @@ export class LearningAgent {
       await this.repo.put(uid, "plans", planRecord.id, planRecord);
       let quiz;
       if (!planOnly) {
-        const draft = await step("Generate educational quiz with AI", () =>
-          this.llm.callTool(
-            "generate_quiz",
-            "Generate exactly five accurate educational questions. Multiple choice has four distinct options; boolean has exactly [True, False]. Include explanations. Match requested difficulty and format. Cultural references are optional context, never substitute for actual subject knowledge.",
-            quizParameters,
-            { plan, difficulty: effectiveDifficulty, format: input.format },
-            quizSchema,
-          ),
-        );
-        if (
-          draft.questions.some(
-            (q) =>
-              q.difficulty !== effectiveDifficulty || q.type !== input.format,
+        let draft, feedback;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          draft = await step(
+            attempt
+              ? "Revise educational quiz with AI"
+              : "Generate educational quiz with AI",
+            () =>
+              callTool(
+                "generate_quiz",
+                `Generate exactly five accurate educational questions at ${effectiveDifficulty} difficulty in ${input.format} format. Multiple choice has four distinct string options; boolean has exactly the JSON strings ["True", "False"], never JSON booleans. Use established, unambiguous subject knowledge. State assumptions for calculations; avoid disputed claims and imprecise numerical facts. Hard questions should test conceptual reasoning. Include concise explanations. Address all review feedback if supplied. Cultural references are optional context, never substitute for actual subject knowledge.`,
+                quizParametersFor(effectiveDifficulty, input.format),
+                {
+                  plan,
+                  difficulty: effectiveDifficulty,
+                  format: input.format,
+                  ...(feedback
+                    ? { previousDraft: draft, reviewFeedback: feedback }
+                    : {}),
+                },
+                quizSchema,
+              ),
+          );
+          if (
+            draft.questions.some(
+              (q) =>
+                q.difficulty !== effectiveDifficulty || q.type !== input.format,
+            )
           )
-        )
-          throw new AppError(
-            502,
-            "INVALID_QUIZ",
-            "Quiz did not match the requested format or difficulty.",
-          );
-        await step("Review answers and educational accuracy", async () => {
-          const review = await this.llm.callTool(
-            "review_quiz",
-            "Independently solve every question. Check each answer index and explanation for factual accuracy, ambiguity, and educational relevance to the plan. Approve only if all five are sound; report uncertainty as an issue.",
-            reviewParameters,
-            { plan, quiz: draft },
-            reviewSchema,
-          );
-          if (!review.approved || review.issues.length)
             throw new AppError(
               502,
-              "QUIZ_REJECTED",
-              "The answer review found uncertain content. Please regenerate.",
+              "INVALID_QUIZ",
+              "Quiz did not match the requested format or difficulty.",
             );
-        });
+          const review = await step(
+            attempt
+              ? "Review revised quiz accuracy"
+              : "Review answers and educational accuracy",
+            async () => {
+              const review = await callTool(
+                "review_quiz",
+                "Independently solve every question. Check each answer index and explanation for factual accuracy, ambiguity, and educational relevance to the plan. Approve only if all five are sound; report uncertainty as an issue.",
+                reviewParameters,
+                { plan, quiz: draft },
+                reviewSchema,
+              );
+              const approved = review.approved && review.issues.length === 0;
+              execution.steps.at(-1).outcome = approved
+                ? "approved"
+                : "revision_required";
+              if (!approved && attempt === 1)
+                throw new AppError(
+                  502,
+                  "QUIZ_REJECTED",
+                  "The answer review found uncertain content. Please regenerate.",
+                );
+              return review;
+            },
+          );
+          if (review.approved && review.issues.length === 0) break;
+          feedback = review.issues.length
+            ? review.issues
+            : [
+                "Independently replace uncertain questions and verify all answers.",
+              ];
+        }
         quiz = {
           id: randomUUID(),
           title: plan.title,
