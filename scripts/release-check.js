@@ -6,7 +6,9 @@ const checks = [
   "test:emulator",
   "test:browser",
   "build",
+  "test:production",
   "format:check",
+  "audit:production",
 ];
 if (process.argv.includes("--live"))
   checks.push("test:live:qloo", "test:live:firebase", "verify:live");
