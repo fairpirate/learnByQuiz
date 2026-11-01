@@ -4,24 +4,40 @@ import useQuestionStore from "../../store/zustand";
 import AnimateProvider from "../../components/AnimateProvider/AnimateProvider";
 
 function Question() {
-  const { fetchQuestion, question: questionData, error } = useQuestionStore();
+  const {
+    fetchQuestion,
+    resetQuestion,
+    question: questionData,
+    error,
+    loading,
+    loadingMessage,
+  } = useQuestionStore();
   const { search } = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!questionData?.length && !error) {
+    if (!questionData?.length && !error && !loading) {
       fetchQuestion(search);
     }
-  }, [questionData, search, error, fetchQuestion]);
+  }, [questionData, search, error, loading, fetchQuestion]);
 
   if (error)
     return (
       <div role="alert">
         <p>{String(error)}</p>
         <button onClick={() => fetchQuestion(search)}>Retry</button>
+        <button
+          onClick={() => {
+            resetQuestion();
+            navigate("/");
+          }}
+        >
+          Change quiz settings
+        </button>
       </div>
     );
-  if (!questionData?.length) return <p role="status">Loading...</p>;
+  if (loading || !questionData?.length)
+    return <p role="status">{loadingMessage}</p>;
 
   return (
     <AnimateProvider className="max-w-xl mx-auto ">

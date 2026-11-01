@@ -239,8 +239,10 @@ test("taste profile, generated quiz, review and adaptive dashboard work", async 
 test("classic quizzes remain available and score against the real question count", async ({
   page,
 }) => {
-  await page.route("https://opentdb.com/api.php**", (route) =>
-    route.fulfill({
+  let requests = 0;
+  await page.route("https://opentdb.com/api.php**", async (route) => {
+    requests++;
+    await route.fulfill({
       json: {
         response_code: 0,
         results: Array.from({ length: 3 }, (_, i) => ({
@@ -251,11 +253,12 @@ test("classic quizzes remain available and score against the real question count
           incorrect_answers: ["Wrong A", "Wrong B", "Wrong C"],
         })),
       },
-    }),
-  );
+    });
+  });
   await signIn(page);
   await page.getByRole("button", { name: "Begin Test" }).click();
   await page.getByRole("button", { name: "Start", exact: true }).click();
+  expect(requests).toBe(1);
   for (let i = 0; i < 3; i++)
     await page.getByRole("button", { name: /Correct/ }).click();
   await expect(
@@ -263,4 +266,103 @@ test("classic quizzes remain available and score against the real question count
   ).toBeVisible();
   await page.getByRole("button", { name: "Back to dashboard" }).click();
   await expect(page.getByRole("button", { name: "Begin Test" })).toBeVisible();
+});
+
+const classicQuestions = [
+  {
+    category: "Science",
+    difficulty: "easy",
+    question: "What is H2O?",
+    correct_answer: "Water",
+    incorrect_answers: ["Salt", "Air", "Iron"],
+  },
+];
+
+test("classic quiz waits and recovers from trivia rate limiting", async ({
+  page,
+}) => {
+  const requestTimes = [];
+  await page.route("https://opentdb.com/api.php**", async (route) => {
+    requestTimes.push(Date.now());
+    await route.fulfill(
+      requestTimes.length === 1
+        ? { status: 429, json: { response_code: 5 } }
+        : { json: { response_code: 0, results: classicQuestions } },
+    );
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Begin Test" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Trivia is busy. Retrying shortly…",
+  );
+  await expect(
+    page.getByRole("button", { name: "Start", exact: true }),
+  ).toBeVisible({ timeout: 12000 });
+  expect(requestTimes).toHaveLength(2);
+  expect(requestTimes[1] - requestTimes[0]).toBeGreaterThanOrEqual(5000);
+});
+
+test("stale persisted errors clear and a provider outage can be retried", async ({
+  page,
+}) => {
+  let requests = 0;
+  await page.route("https://opentdb.com/api.php**", async (route) => {
+    await route.fulfill(
+      ++requests === 1
+        ? { status: 503, body: "unavailable" }
+        : { json: { response_code: 0, results: classicQuestions } },
+    );
+  });
+  await signIn(page);
+  await page.evaluate(() => {
+    const value = JSON.parse(localStorage.getItem("question-storage"));
+    value.state.error = "Trivia service is unavailable. Please retry.";
+    value.state.loading = true;
+    localStorage.setItem("question-storage", JSON.stringify(value));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Begin Test" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "temporarily unavailable",
+  );
+  expect(requests).toBe(1);
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(page.getByRole("status")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Start", exact: true }),
+  ).toBeVisible({ timeout: 12000 });
+  expect(requests).toBe(2);
+  const persisted = await page.evaluate(
+    () => JSON.parse(localStorage.getItem("question-storage")).state,
+  );
+  expect(persisted.error).toBeUndefined();
+  expect(persisted.loading).toBeUndefined();
+});
+
+test("unavailable trivia settings allow choosing a different quiz", async ({
+  page,
+}) => {
+  let requests = 0;
+  await page.route("https://opentdb.com/api.php**", (route) =>
+    route.fulfill({
+      json:
+        ++requests === 1
+          ? { response_code: 1, results: [] }
+          : { response_code: 0, results: classicQuestions },
+    }),
+  );
+  await signIn(page);
+  await page.getByRole("button", { name: "Begin Test" }).click();
+  await expect(page.getByRole("alert")).toContainText("Not enough questions");
+  await expect(
+    page.getByRole("button", { name: "Change quiz settings" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Classic Quiz", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Begin Test" })).toBeVisible();
+  await page.locator('select[name="type"]').selectOption("10");
+  await page.getByRole("button", { name: "Begin Test" }).click();
+  await expect(
+    page.getByRole("button", { name: "Start", exact: true }),
+  ).toBeVisible({ timeout: 12000 });
+  expect(requests).toBe(2);
 });
