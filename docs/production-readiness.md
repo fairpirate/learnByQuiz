@@ -10,13 +10,14 @@ results are in [live-readiness.json](live-readiness.json) and
 
 | Area | Result |
 | --- | --- |
-| Backend/unit/HTTP regressions | 37 tests passed, including bounded repair, rejected-quiz persistence prevention, authentication, ownership, validation and grading |
+| Backend/unit/HTTP regressions | 41 tests passed, including bounded repair, rejected-quiz persistence prevention, authentication, ownership, validation and grading |
 | Firestore emulator and rules | Passed persistence, concurrent idempotent grading and anonymous/owner/cross-user access denial |
-| Desktop/mobile browser workflows | Four tests passed; browser external services are mocked |
+| Desktop/mobile browser workflows | Ten tests passed, including classic trivia throttling, retry, persisted-error and settings recovery; browser external services are mocked |
 | Production build and actual Node entry point | Passed SPA/assets, protected API, caching and graceful shutdown |
 | Live Qloo | Passed all 10 Search categories, all 10 Insights categories, cache and invalid credentials |
 | Live Firebase | Passed real sign-in, verified/revoked tokens, persistent CRUD, ownership, transactions, deployed rules and cleanup |
 | Live NVIDIA function calling | Passed validated named-tool requests |
+| Live classic trivia | Passed a real default-category request using the browser client; see [trivia verification](trivia-verification.json) |
 | Full live quiz matrix | Passed all six difficulty/format cases, adaptive generation, grading, dashboard, revocation and cleanup; 14 test results including their parent |
 | Dependency audit | Zero reported vulnerabilities; patched glob override for transitive rimraf |
 | Formatting and diff checks | Passed |
@@ -29,6 +30,10 @@ all six difficulty/format combinations, independent answer review, server-side
 grading, persistence, adaptive generation and access boundaries. It removes its
 records and accounts in `finally`; cleanup failure fails the suite. It never
 counts skipped live tests as success.
+
+The original full cloud run is retained in the release report. The subsequent
+classic-trivia fix was separately checked with 41 unit/HTTP tests, 10 browser
+checks, a real trivia request, production build/startup and formatting.
 
 ## Hardening completed
 

@@ -167,6 +167,7 @@ npm test                    # Unit and HTTP integration tests; no credentials
 npm run build               # Production frontend build
 npm run test:browser         # Desktop + mobile browser workflows; external requests mocked
 npm run test:live            # Real Qloo search + Insights; skips without QLOO_API_KEY
+npm run test:live:trivia     # Strict real classic-trivia request; no credentials
 npm run test:firestore       # Actual adapter and rules tests; requires emulator
 npm run test:emulator        # Start the official demo emulator and run those tests
 npm run verify:live          # Strict live Firebase/Qloo/LLM prerequisites; never skips
@@ -185,6 +186,21 @@ FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run test:firestore
 ```
 
 The integration test requires the emulator variable, uses `demo-learnbyquiz`, and cleans up its own generated user documents. It never falls back to production. The Qloo live test uses `.env` credentials and makes real provider calls; skipped tests do not count as verified live integration. LLM tests verify tool-call payloads and output validation with mocked providers. A live full-stack demo additionally requires working Firebase/Admin and LLM configuration.
+
+## Classic trivia reliability
+
+Classic quizzes request Open Trivia DB directly from the browser. The client
+coalesces duplicate loads and spaces requests by at least 5.2 seconds. HTTP 429
+and provider response code 5 get one delayed retry, with a visible loading state.
+Provider outages, network timeouts, unavailable questions and invalid settings
+have distinct errors. Transient errors/loading state are excluded from persisted
+quiz state; older saved errors are cleared during hydration. Starting a new quiz
+clears the previous failed attempt.
+
+Open Trivia DB documents a [one-request-per-IP limit every five seconds](https://opentdb.com/api_config.php).
+Shared IP traffic can still exhaust that allowance, and upstream outages remain
+external failures. No fixture questions are substituted in production. The
+strict live classic-trivia check is included in `npm run test:live:all`.
 
 ## Production deployment
 
