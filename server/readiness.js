@@ -1,20 +1,34 @@
 import { readFileSync } from "node:fs";
 import { createPrivateKey } from "node:crypto";
+import { resolveLLMConfiguration } from "./services/llm-config.js";
 
-export function inspectConfiguration(env = process.env) {
+export function inspectConfiguration(
+  env = process.env,
+  { browser = true } = {},
+) {
   const required = [
-    "VITE_API_KEY",
-    "VITE_AUTH_DOMAIN",
-    "VITE_PROJECT_ID",
-    "VITE_APP_ID",
+    ...(browser
+      ? ["VITE_API_KEY", "VITE_AUTH_DOMAIN", "VITE_PROJECT_ID", "VITE_APP_ID"]
+      : []),
     "FIREBASE_PROJECT_ID",
     "QLOO_API_KEY",
-    "LLM_API_KEY",
-    "LLM_MODEL",
   ];
   const missing = required.filter((key) => !env[key]?.trim());
   const errors = missing.map((key) => `${key} is missing`),
     warnings = [];
+  try {
+    const llm = resolveLLMConfiguration(env);
+    const keyName =
+      llm.provider === "nvidia" ? "NVIDIA_API_KEY" : "LLM_API_KEY";
+    if (!llm.apiKey?.trim()) errors.push(`${keyName} is missing`);
+    if (!llm.model?.trim()) errors.push("LLM_MODEL is missing");
+    if (llm.provider === "nvidia")
+      warnings.push(
+        "NVIDIA free hosted access is for prototyping/testing; verify production terms before deployment",
+      );
+  } catch (error) {
+    errors.push(error.message);
+  }
   if (
     env.VITE_PROJECT_ID &&
     env.FIREBASE_PROJECT_ID &&
@@ -22,6 +36,7 @@ export function inspectConfiguration(env = process.env) {
   )
     errors.push("Browser and server Firebase project IDs differ");
   for (const key of ["QLOO_BASE_URL", "LLM_BASE_URL"]) {
+    if (key === "LLM_BASE_URL" && env.LLM_PROVIDER === "nvidia") continue;
     if (!env[key]) continue;
     try {
       const u = new URL(env[key]);
@@ -103,6 +118,7 @@ export function providerFailure(error) {
         "Create the default Firestore database in the configured Firebase project.",
     };
   const known = {
+    LLM_UNAVAILABLE: "The LLM provider could not be reached or timed out.",
     LLM_BILLING_REQUIRED:
       "The LLM provider reports exhausted credit or quota; update billing or the configured key.",
     LLM_AUTH_FAILED:

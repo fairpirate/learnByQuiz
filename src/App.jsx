@@ -7,10 +7,11 @@ import AnimateProvider from "./components/AnimateProvider/AnimateProvider";
 function App() {
   const [type, setType] = useState(Types[0].id);
   const [level, setLevel] = useState(Level[0]);
-  const { question } = useQuestionStore();
+  const { question, resetQuestion } = useQuestionStore();
   const navigate = useNavigate();
 
   const handleBegin = () => {
+    resetQuestion();
     const query = `amount=5&category=${type}&difficulty=${level}&type=multiple`;
     navigate(`/question?${query}`, {
       replace: false,

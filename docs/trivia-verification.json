@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-11-01T14:07:15.550Z",
+  "scope": "Classic quiz loading fix; separate from the earlier full AI cloud release run",
+  "checks": [
+    {
+      "name": "Unit and HTTP regressions",
+      "status": "passed",
+      "tests": 41
+    },
+    {
+      "name": "Desktop/mobile browser regressions",
+      "status": "passed",
+      "tests": 10,
+      "providers": "mocked in browser tests"
+    },
+    {
+      "name": "Live default Open Trivia DB quiz via browser client",
+      "status": "passed",
+      "questions": 5,
+      "credentialsRequired": false
+    },
+    {
+      "name": "Production frontend build",
+      "status": "passed"
+    },
+    {
+      "name": "Production entry-point smoke test",
+      "status": "passed"
+    },
+    {
+      "name": "Formatting and diff checks",
+      "status": "passed"
+    }
+  ],
+  "remoteDeployment": "Not applied: VPS SSH access remains unavailable"
+}

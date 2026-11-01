@@ -22,6 +22,43 @@ async function setup(llm = fakeLLM()) {
     }),
   };
 }
+test("review feedback revises the draft once and only the approved quiz is saved", async () => {
+  const llm = fakeLLM(),
+    original = llm.callTool;
+  let reviews = 0,
+    drafts = 0;
+  llm.callTool = async (name, desc, params, context, schema) => {
+    if (name === "review_quiz")
+      return ++reviews === 1
+        ? { approved: false, issues: ["Clarify the premise"] }
+        : { approved: true, issues: [] };
+    if (name === "generate_quiz") {
+      drafts++;
+      if (drafts === 2)
+        assert.deepEqual(context.reviewFeedback, ["Clarify the premise"]);
+      return schema.parse({
+        questions: draft.questions.map((q) => ({
+          ...q,
+          question: `${q.question} revision ${drafts}`,
+        })),
+      });
+    }
+    return original(name, desc, params, context, schema);
+  };
+  const { repo, agent } = await setup(llm);
+  const result = await agent.run("u", {
+    difficulty: "medium",
+    format: "multiple",
+    targetType: "book",
+  });
+  assert.equal(reviews, 2);
+  assert.equal((await repo.list("u", "quizzes")).length, 1);
+  assert.ok(
+    result.quiz.questions.every((q) => q.question.endsWith("revision 2")),
+  );
+  assert.equal(result.execution.steps[4].outcome, "revision_required");
+  assert.equal(result.execution.steps[6].outcome, "approved");
+});
 test("agent executes real logical tools, persists plan, quiz and completed trace; redacts answers", async () => {
   const { repo, agent } = await setup();
   const r = await agent.run("u", {

@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-11-01T14:00:23.518953+00:00",
+  "domain": "learnbyquiz.spiritedrobot.in",
+  "dnsAddress": "162.35.172.158",
+  "firebaseAuthorizedDomain": "verified",
+  "schemaMigration": "applied",
+  "composeConfiguration": "validated",
+  "containerExecution": {
+    "status": "not_verified",
+    "reason": "Local Docker daemon is not running"
+  },
+  "publicHttps": {
+    "status": "failed",
+    "code": "CERTIFICATE_HOSTNAME_MISMATCH"
+  },
+  "deployment": {
+    "status": "pending",
+    "reason": "SSH authentication as root@162.35.172.158 was denied; no VPS settings changed"
+  },
+  "hostAppBinding": "127.0.0.1:13001",
+  "hostPortAvailability": {
+    "status": "absent_from_supplied_snapshot",
+    "liveCheck": "Run python3 deploy/check-vps.py on the VPS before first installation"
+  },
+  "proxy": "Existing host Nginx on ports 80/443; no Compose proxy service",
+  "nginxLocalValidation": {
+    "status": "passed",
+    "version": "1.30.6",
+    "checks": "TLS, ACME, redirect, GET/POST paths, auth/forwarding headers, body size and unrelated vhost"
+  },
+  "deploymentTests": {
+    "status": "passed",
+    "tests": 7,
+    "scope": "Isolated local Nginx and mocked VPS port/network checks; not remote VPS execution"
+  }
+}

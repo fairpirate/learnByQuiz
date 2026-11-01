@@ -20,6 +20,7 @@ export function createApp({
   verifyToken,
   logger = console.info,
   staticDir,
+  trustProxy = false,
 }) {
   const limited = (req, res) =>
     res.status(429).json({
@@ -30,6 +31,7 @@ export function createApp({
       },
     });
   const app = express();
+  app.set("trust proxy", trustProxy);
   app.disable("x-powered-by");
   app.use(
     helmet({
@@ -48,6 +50,7 @@ export function createApp({
     }),
   );
   app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) res.set("Cache-Control", "no-store");
     req.requestId = randomUUID();
     res.set("X-Request-Id", req.requestId);
     res.on("finish", () =>
@@ -282,8 +285,22 @@ export function createApp({
     next(new AppError(404, "NOT_FOUND", "API route not found.")),
   );
   if (staticDir) {
-    app.use(express.static(staticDir));
-    app.get("/{*path}", (_req, res) => res.sendFile(`${staticDir}/index.html`));
+    app.use(
+      express.static(staticDir, {
+        setHeaders(res, path) {
+          res.set(
+            "Cache-Control",
+            path.startsWith(`${staticDir}/assets/`)
+              ? "public, max-age=31536000, immutable"
+              : "no-cache",
+          );
+        },
+      }),
+    );
+    app.get("/{*path}", (_req, res) => {
+      res.set("Cache-Control", "no-cache");
+      res.sendFile(`${staticDir}/index.html`);
+    });
   }
   app.use((err, req, res, _next) => {
     if ([4, 5, 7, 14].includes(err.code))

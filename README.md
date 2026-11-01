@@ -1,6 +1,6 @@
 # LearnByQuiz — taste-aware learning
 
-**Release status:** Firebase and all Qloo categories now pass live verification. The remaining full-workflow blocker is the configured LLM provider’s API credit balance. See [live Firebase results](docs/firebase-verification.json) and [production verification](docs/production-readiness.md).
+**Release status:** Firebase and all Qloo categories now pass live verification. The complete live release suite passes with NVIDIA, including all quiz formats/difficulties, grading, persistence and adaptive generation. Docker deployment and public HTTPS verification remain pending server access. See [live Firebase results](docs/firebase-verification.json) and [production verification](docs/production-readiness.md).
 
 LearnByQuiz extends the original React quiz application with Qloo cultural discovery and an AI learning workflow. Firebase email/password authentication, Open Trivia DB categories, timed classic quizzes, scoring, and answer summaries remain available. Open **AI Learning Journey** after signing in to use the new features.
 
@@ -50,15 +50,36 @@ Vite serves the browser at `http://localhost:5173`; `/api` proxies to the Node b
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to an Admin service-account file **outside the repository**; omit when using application default credentials/workload identity |
 | `QLOO_API_KEY` | Backend-only Qloo key |
 | `QLOO_BASE_URL` | Defaults to `https://hackathon.api.qloo.com`, which is required for hackathon keys; override only when using a separate production key |
-| `LLM_API_KEY` | Backend-only provider key |
+| `LLM_PROVIDER` | `nvidia` for NVIDIA hosted inference; `openai` (legacy default) for the existing compatible adapter |
+| `NVIDIA_API_KEY` | Backend-only NVIDIA key, required when selecting NVIDIA; never falls back to another provider key |
+| `NVIDIA_MODEL` | Defaults to `nvidia/nemotron-3.5-super-vl-120b-a12b`; overrides must support named function calls and `reasoning_effort=none` |
+| `LLM_API_KEY` | Backend-only key, used only with `LLM_PROVIDER=openai` |
 | `LLM_BASE_URL` | HTTPS OpenAI-compatible API base; defaults to `https://api.openai.com/v1` |
-| `LLM_MODEL` | An available model supporting Chat Completions function calling; explicitly required |
+| `LLM_MODEL` | Required with `LLM_PROVIDER=openai`; an available Chat Completions function-calling model |
 | `GOOGLE_CLOUD_QUOTA_PROJECT` | Optional Google quota target; cross-project accounts require Service Usage Consumer access there |
 | `PORT` | Backend port, default 3001; update the Vite proxy if changed |
 
 Never give a provider key a `VITE_` prefix. Firebase web config identifies the public project; provider and Admin credentials stay server-side. Grant the backend only the Firebase Auth lookup and Firestore access it needs. Enable your local and production domains in Firebase Authentication.
 
 Provider credentials belong only in the ignored `.env` file or a deployment secret manager. The committed `.env.example` must contain blanks. Missing provider configuration produces an explicit service-unavailable message. There are no production mock responses or fake execution traces.
+
+## NVIDIA LLM setup
+
+1. Create an account at [NVIDIA Build](https://build.nvidia.com/explore/discover), open the Nemotron model, and generate an API key for the hosted endpoint.
+2. In your existing ignored `.env`, set the following. Keep Firebase and Qloo settings as configured. The configured workspace selects NVIDIA and its key has passed live verification.
+
+```dotenv
+LLM_PROVIDER=nvidia
+NVIDIA_API_KEY=your-key-here
+NVIDIA_MODEL=nvidia/nemotron-3.5-super-vl-120b-a12b
+```
+
+3. Restart the backend and run `npm run test:live:llm`. This makes one real, small structured-function request and fails for missing credentials, denied access, throttling or invalid output. It does not create Firebase users or records.
+4. Run `npm run test:live:all` for the full release gate, including the live plan/quiz matrix after all dependency checks pass.
+
+All planner, quiz-generator and reviewer calls share this provider. The NVIDIA adapter handles JSON-encoded nested containers through schema-directed decoding before validation. It uses the fixed `https://integrate.api.nvidia.com/v1` endpoint, `max_tokens`, explicit non-streaming responses, named function selection, a single tool call and schema validation. Reasoning is disabled to reserve the bounded output budget for the structured answer. See [NVIDIA's model API reference](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3_5-super-vl-120b-a12b-infer). Model availability and account limits must be checked with your key; the configured key has passed a live NVIDIA function-call probe.
+
+NVIDIA documents free Developer Program endpoint access for prototyping and testing. Its [FAQ](https://docs.api.nvidia.com/nim/docs/product) describes separate production licensing; free development access is not a production hosting commitment. Check applicable terms before serving real users. Set `LLM_PROVIDER=openai` to use the previous `LLM_*` settings again.
 
 ## Qloo integration
 
@@ -88,6 +109,8 @@ Only executed steps appear in the stored trace:
 4. Call `generate_quiz` for exactly five questions in the chosen format.
 5. Call `review_quiz` to independently solve questions and review explanations. Rejected or uncertain drafts are not stored as quizzes.
 6. Persist the validated activity and completed execution trace.
+
+The provider schema includes the server validation bounds, selected subject, requested difficulty and exact format. Malformed tool output gets at most one repair request within the original 60-second tool deadline. A rejected draft gets one revision followed by another independent review; a second rejection fails without saving a quiz. All provider calls share a 180-second workflow deadline. Billing, access and rate-limit errors are never retried. Review outcomes and revision steps are recorded in the trace.
 
 The plan must use a selected educational subject. Quiz schemas reject duplicate questions, duplicate options, invalid answer indexes, incorrect option counts, malformed true/false answers, and mismatched difficulty/format. True/false uses two options; multiple choice uses four. Context is treated as untrusted data. Execution steps record actual status, start time, duration, and failures; the UI polls persisted traces while generation runs.
 
@@ -144,6 +167,7 @@ npm test                    # Unit and HTTP integration tests; no credentials
 npm run build               # Production frontend build
 npm run test:browser         # Desktop + mobile browser workflows; external requests mocked
 npm run test:live            # Real Qloo search + Insights; skips without QLOO_API_KEY
+npm run test:live:trivia     # Strict real classic-trivia request; no credentials
 npm run test:firestore       # Actual adapter and rules tests; requires emulator
 npm run test:emulator        # Start the official demo emulator and run those tests
 npm run verify:live          # Strict live Firebase/Qloo/LLM prerequisites; never skips
@@ -163,6 +187,21 @@ FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run test:firestore
 
 The integration test requires the emulator variable, uses `demo-learnbyquiz`, and cleans up its own generated user documents. It never falls back to production. The Qloo live test uses `.env` credentials and makes real provider calls; skipped tests do not count as verified live integration. LLM tests verify tool-call payloads and output validation with mocked providers. A live full-stack demo additionally requires working Firebase/Admin and LLM configuration.
 
+## Classic trivia reliability
+
+Classic quizzes request Open Trivia DB directly from the browser. The client
+coalesces duplicate loads and spaces requests by at least 5.2 seconds. HTTP 429
+and provider response code 5 get one delayed retry, with a visible loading state.
+Provider outages, network timeouts, unavailable questions and invalid settings
+have distinct errors. Transient errors/loading state are excluded from persisted
+quiz state; older saved errors are cleared during hydration. Starting a new quiz
+clears the previous failed attempt.
+
+Open Trivia DB documents a [one-request-per-IP limit every five seconds](https://opentdb.com/api_config.php).
+Shared IP traffic can still exhaust that allowance, and upstream outages remain
+external failures. No fixture questions are substituted in production. The
+strict live classic-trivia check is included in `npm run test:live:all`.
+
 ## Production deployment
 
 1. Use a Node 22.18+ host with HTTPS and Firestore access. Add the production origin to Firebase Auth authorized domains.
@@ -172,7 +211,7 @@ The integration test requires the emulator variable, uses `demo-learnbyquiz`, an
 5. Run `npm start`. Express serves `dist`, the SPA fallback, and `/api` on one origin.
 6. Set ingress/proxy timeouts to at least 240 seconds for the bounded three-call AI workflow. Preserve authentication headers.
 
-A multi-stage `Dockerfile` is included. Pass only public Firebase values as build arguments. The runtime runs as a non-root user. Mount credentials outside the image or use workload identity. Deploy one API process initially: caches, rate-limit stores, and generation locks are process-local. Before horizontal scaling, use a shared rate-limit/lock store. If a trusted reverse proxy is used, configure Express `trust proxy` for the exact proxy topology before relying on per-client IP limits; it is deliberately not enabled blindly.
+A multi-stage `Dockerfile`, single-app `compose.yaml` and host Nginx virtual hosts are included. Follow the [VPS deployment runbook](docs/deployment.md) for `learnbyquiz.spiritedrobot.in`. Compose binds only `127.0.0.1:13001`; the existing Nginx continues serving ports 80/443. Run `python3 deploy/check-vps.py` on the VPS before first installation to check port and subnet conflicts. Pass only public Firebase values as build arguments. The runtime runs as a non-root user. Mount credentials outside the image or use workload identity. Deploy one API process initially: caches, rate-limit stores, and generation locks are process-local. Before horizontal scaling, use a shared rate-limit/lock store. Compose trusts only the dedicated Docker gateway used by host Nginx; forwarding headers are overwritten at the ingress.
 
 ## Demo workflow
 
@@ -189,7 +228,7 @@ UI screenshots captured by the browser tests are available for [desktop](docs/sc
 
 ## Known limits and verification
 
-- Qloo authentication, search, tag normalization, and book/gaming Insights were verified against the live hackathon API on October 31, 2026. LLM, Firebase authentication, and deployed Firestore access still require separate configuration and live verification.
+- All 10 Qloo categories, Firebase authentication, deployed Firestore access rules and NVIDIA function calling were verified live on November 1, 2026. Full workflow results are recorded in `docs/release-verification.json`.
 - AI answer review uses a separate call to the configured provider; no independent factual source verification is available.
 - Generation is synchronous and bounded. A process crash may leave a running trace; execution jobs are not automatically resumed. Use a durable job queue before deploying across workers or supporting long-running activities.
 - Analytics are a rolling window; difficulty thresholds are a transparent initial policy, not a validated educational assessment model.

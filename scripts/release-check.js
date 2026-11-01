@@ -6,10 +6,17 @@ const checks = [
   "test:emulator",
   "test:browser",
   "build",
+  "test:production",
   "format:check",
+  "audit:production",
 ];
 if (process.argv.includes("--live"))
-  checks.push("test:live:qloo", "test:live:firebase", "verify:live");
+  checks.push(
+    "test:live:trivia",
+    "test:live:qloo",
+    "test:live:firebase",
+    "verify:live",
+  );
 const report = { checkedAt: new Date().toISOString(), checks: [], ok: true };
 function run(script) {
   return new Promise((resolve) => {
