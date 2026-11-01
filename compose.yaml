@@ -14,7 +14,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3001"
-      TRUST_PROXY: "172.30.0.2"
+      # Host Nginx reaches the container through this dedicated bridge gateway.
+      TRUST_PROXY: "172.30.0.1"
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?Set server Firebase project}
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase_admin
       GOOGLE_CLOUD_QUOTA_PROJECT: ${GOOGLE_CLOUD_QUOTA_PROJECT:-}
@@ -42,31 +43,8 @@ services:
     pids_limit: 128
     networks:
       - backend
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-  proxy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    stop_grace_period: 250s
-    depends_on:
-      app:
-        condition: service_healthy
-    environment:
-      DOMAIN: ${DOMAIN:?Set the public domain without https://}
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    networks:
-      backend:
-        ipv4_address: 172.30.0.2
+      - "127.0.0.1:13001:3001"
     logging:
       driver: json-file
       options:
@@ -75,11 +53,9 @@ services:
 secrets:
   firebase_admin:
     file: ${GOOGLE_APPLICATION_CREDENTIALS:?Set the host credential file path}
-volumes:
-  caddy_data:
-  caddy_config:
 networks:
   backend:
     ipam:
       config:
         - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1
