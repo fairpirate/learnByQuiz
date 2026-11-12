@@ -16,7 +16,6 @@ import { creditPacks } from "./services/paypal.js";
 import { publicQuiz } from "./services/agent.js";
 export function createApp({
   repo,
-  qloo,
   agent,
   paypal,
   verifyToken,
@@ -79,7 +78,7 @@ export function createApp({
     }),
   );
   app.post(
-    "/api/payments/webhook",
+    ["/api/paypal/webhook", "/api/payments/webhook"],
     express.json({ limit: "128kb" }),
     async (req, res) => {
       if (!paypal)
@@ -175,8 +174,8 @@ export function createApp({
       .strict()
       .parse(req.body);
     res.json({
-      entities: await qloo.searchEntities(query, type),
-      source: "qloo",
+      entities: agent.qloo ? await agent.qloo.searchEntities(query, type) : [],
+      source: agent.qloo ? "qloo" : "none",
     });
   });
   app.get("/api/taste/profile", async (req, res) =>
@@ -187,23 +186,26 @@ export function createApp({
     const selected = [
       ...new Map(input.entities.map((e) => [e.entity_id, e])).values(),
     ];
-    // Resolve selected IDs against Qloo again; never persist client-invented cultural metadata.
-    const entities = await Promise.all(
-      selected.map(async (e) => {
-        const type = entityType.parse(e.subtype.replace("urn:entity:", ""));
-        const matches = await qloo.searchEntities(e.name, type);
-        const canonical = matches.find(
-          (x) => x.entity_id.toLowerCase() === e.entity_id.toLowerCase(),
-        );
-        if (!canonical)
-          throw new AppError(
-            400,
-            "INVALID_ENTITY",
-            "Select an entity returned by Qloo search.",
+    // Resolve selected IDs against Qloo when available; otherwise persist as-is.
+    let entities = selected;
+    if (agent.qloo) {
+      entities = await Promise.all(
+        selected.map(async (e) => {
+          const type = entityType.parse(e.subtype.replace("urn:entity:", ""));
+          const matches = await agent.qloo.searchEntities(e.name, type);
+          const canonical = matches.find(
+            (x) => x.entity_id.toLowerCase() === e.entity_id.toLowerCase(),
           );
-        return canonical;
-      }),
-    );
+          if (!canonical)
+            throw new AppError(
+              400,
+              "INVALID_ENTITY",
+              "Select an entity returned by Qloo search.",
+            );
+          return canonical;
+        }),
+      );
+    }
     const profile = {
       ...input,
       entities,
@@ -229,8 +231,10 @@ export function createApp({
         "Save your taste profile first.",
       );
     res.json({
-      entities: await qloo.getPersonalizedRecommendations(profile, type),
-      source: "qloo",
+      entities: agent.qloo
+        ? await agent.qloo.getPersonalizedRecommendations(profile, type)
+        : [],
+      source: agent.qloo ? "qloo" : "none",
     });
   });
   const expensive = rateLimit({

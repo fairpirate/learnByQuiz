@@ -220,7 +220,9 @@ test("taste profile, generated quiz, review and adaptive dashboard work", async 
     await checkbox.click();
     await expect(checkbox).toBeChecked();
   }
-  await page.getByLabel("Find a favorite in Qloo").fill("Interstellar");
+  await page
+    .getByLabel("Find a favorite", { exact: true })
+    .fill("Interstellar");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByRole("button", { name: "Save preferences" }).click();
@@ -234,6 +236,16 @@ test("taste profile, generated quiz, review and adaptive dashboard work", async 
     .click();
   await expect(page.getByRole("button", { name: "Start quiz" })).toBeVisible();
   await page.getByRole("button", { name: "Start quiz" }).click();
+  const dialog = page.getByRole("dialog", { name: "Explore astronomy" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveJSProperty("open", true);
+  await dialog.locator('input[name="q0"]').first().click();
+  await expect(dialog.locator('input[name="q0"]').first()).toBeChecked();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Start quiz" })).toBeFocused();
+  await page.getByRole("button", { name: "Start quiz" }).click();
+  await expect(dialog.locator('input[name="q0"]').first()).toBeChecked();
   for (let i = 0; i < 5; i++) {
     const answer = page.locator(`input[name=q${i}]`).first();
     await answer.click();
@@ -251,6 +263,25 @@ test("taste profile, generated quiz, review and adaptive dashboard work", async 
       .getByRole("region", { name: "Quiz answer review" })
       .getByText("Educational explanation.", { exact: true }),
   ).toHaveCount(5);
+  await page.getByRole("button", { name: "Close quiz review" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Review", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("region", { name: "Quiz answer review" }),
+  ).toBeVisible();
+  await expect(dialog.getByRole("radio")).toHaveCount(0);
+  await page.screenshot({
+    path: `test-results/quiz-popup-${test.info().project.name}.png`,
+  });
+  await dialog.getByRole("button", { name: "Close quiz", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Review", exact: true }),
+  ).toBeFocused();
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe(
+    "hidden",
+  );
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -401,7 +432,7 @@ test("PayPal pack checkout, return capture, payment recovery and filtering work"
     id: "starter",
     name: "Learning starter",
     credits: 10,
-    amount: "5.00",
+    amount: "1.00",
     currency: "USD",
   };
   await page.route("http://127.0.0.1:4173/api/payments/**", async (route) => {

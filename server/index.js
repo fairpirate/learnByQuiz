@@ -8,7 +8,6 @@ import { inspectConfiguration } from "./readiness.js";
 import { runtimeConfiguration } from "./runtime-config.js";
 import { createApp } from "./app.js";
 import { FirestoreRepository } from "./repository.js";
-import { QlooService } from "./services/qloo.js";
 import { LLMProvider } from "./services/llm.js";
 import { PayPalService } from "./services/paypal.js";
 import { LearningAgent } from "./services/agent.js";
@@ -32,13 +31,11 @@ initializeApp({
   projectId: process.env.FIREBASE_PROJECT_ID,
 });
 const repo = new FirestoreRepository(getFirestore()),
-  qloo = new QlooService(),
   llm = new LLMProvider();
 const app = createApp({
   repo,
-  qloo,
   paypal: new PayPalService({ repo }),
-  agent: new LearningAgent({ repo, qloo, llm }),
+  agent: new LearningAgent({ repo, llm }),
   verifyToken: (token) => getAuth().verifyIdToken(token, true),
   trustProxy: runtime.trustProxy,
   staticDir:

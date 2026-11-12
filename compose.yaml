@@ -19,8 +19,6 @@ services:
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?Set server Firebase project}
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase_admin
       GOOGLE_CLOUD_QUOTA_PROJECT: ${GOOGLE_CLOUD_QUOTA_PROJECT:-}
-      QLOO_API_KEY: ${QLOO_API_KEY:?Set Qloo key}
-      QLOO_BASE_URL: ${QLOO_BASE_URL:-https://hackathon.api.qloo.com}
       PAYPAL_ENABLED: ${PAYPAL_ENABLED:-false}
       PAYPAL_ENVIRONMENT: ${PAYPAL_ENVIRONMENT:-sandbox}
       PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}

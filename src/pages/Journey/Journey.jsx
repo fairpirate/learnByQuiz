@@ -4,6 +4,7 @@ import { learningApi } from "../../api/learning";
 import DataGrid from "../../components/Grid/DataGrid";
 import QuizGrid from "../../components/Grid/QuizGrid";
 import PreferenceGrid from "../../components/Grid/PreferenceGrid";
+import QuizDialog from "../../components/QuizDialog/QuizDialog";
 import Payments from "../../components/Grid/Payments";
 const categories = [
   ["movie", "Movies"],
@@ -52,6 +53,22 @@ function profilePayload(profile) {
     })),
   };
 }
+function QuizActionCell({ data, context }) {
+  return (
+    <button
+      id={`quiz-trigger-${data.id}`}
+      disabled={!!context.busy}
+      onClick={() => context.start(data.id)}
+    >
+      {context.openingQuizId === data.id
+        ? "Opening…"
+        : data.completed
+          ? "Review"
+          : "Start quiz"}
+    </button>
+  );
+}
+
 export default function Journey() {
   const [dashboard, setDashboard] = useState(null),
     [profile, setProfile] = useState({
@@ -71,6 +88,8 @@ export default function Journey() {
     [notice, setNotice] = useState(""),
     [executions, setExecutions] = useState([]),
     [quiz, setQuiz] = useState(null),
+    [quizOpen, setQuizOpen] = useState(false),
+    [openingQuizId, setOpeningQuizId] = useState(null),
     [answers, setAnswers] = useState([]),
     [performance, setPerformance] = useState(null);
   const mounted = useRef(true),
@@ -159,19 +178,29 @@ export default function Journey() {
   }
   async function start(id) {
     await act("start", async () => {
-      const data = await learningApi(`/learning/quizzes/${id}/start`, {
-        method: "POST",
-      });
-      setQuiz(data.quiz);
-      setAnswers([]);
-      setPerformance(data.performance);
+      setOpeningQuizId(id);
+      try {
+        const data = await learningApi(`/learning/quizzes/${id}/start`, {
+          method: "POST",
+        });
+        if (quiz?.id !== id) setAnswers([]);
+        setQuiz(data.quiz);
+        setPerformance(data.performance);
+        setQuizOpen(true);
+      } finally {
+        setOpeningQuizId(null);
+      }
     });
+  }
+  function closeQuiz() {
+    setQuizOpen(false);
+    setError("");
   }
   return (
     <div className="journey">
       <header className="journey-hero">
         <div>
-          <p className="eyebrow">Qloo × LearnByQuiz</p>
+          <p className="eyebrow">LearnByQuiz</p>
           <h1>Your AI Learning Journey</h1>
           <p>Turn the things you love into something you understand.</p>
         </div>
@@ -181,7 +210,7 @@ export default function Journey() {
         Your interests provide context. Your learning performance guides
         difficulty. No sensitive identity predictions.
       </p>
-      {error && (
+      {error && !quizOpen && (
         <div role="alert" className="journey-error">
           {error}
           <button
@@ -201,10 +230,10 @@ export default function Journey() {
       {!dashboard && !error && (
         <p role="status">Loading your learning journey…</p>
       )}
-      <div className="journey-grid">
-        <section className="journey-card">
-          <p className="eyebrow">01 · Discover my interests</p>
-          <h2>My Taste Profile</h2>
+      <section className="journey-card journey-profile">
+        <p className="eyebrow">01 · Discover my interests</p>
+        <h2>My Taste Profile</h2>
+        <div className="journey-profile-layout">
           <fieldset disabled={!!busy}>
             <legend>What do you enjoy?</legend>
             <PreferenceGrid
@@ -215,118 +244,124 @@ export default function Journey() {
               onToggle={(name) => toggle("interests", name)}
             />
           </fieldset>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              act("search", async () => {
-                const d = await learningApi("/taste/discover", {
-                  method: "POST",
-                  body: { query, type: category },
+          <div className="journey-favorites">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                act("search", async () => {
+                  const d = await learningApi("/taste/discover", {
+                    method: "POST",
+                    body: { query, type: category },
+                  });
+                  setResults(d.entities);
+                  if (!d.entities.length)
+                    setNotice(
+                      "No matches. Try a specific movie, artist, book, game, or brand.",
+                    );
                 });
-                setResults(d.entities);
-                if (!d.entities.length)
-                  setNotice(
-                    "No Qloo matches. Try a specific movie, artist, book, game, or brand.",
-                  );
-              });
-            }}
-          >
-            <label htmlFor="taste-category">Search category</label>
-            <select
-              id="taste-category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              }}
             >
-              {categories.map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            <label htmlFor="taste-query">Find a favorite in Qloo</label>
-            <div className="journey-search">
-              <input
-                id="taste-query"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Try Interstellar or a favorite book"
-                maxLength={500}
-                required
-              />
-              <button disabled={!!busy}>
-                {busy === "search" ? "Searching…" : "Search"}
-              </button>
-            </div>
-          </form>
-          <p className="journey-muted">
-            Broad interests such as space exploration guide the AI. Select at
-            least one real Qloo entity below to supply cultural intelligence.
-          </p>
-          <DataGrid
-            label="Qloo search results"
-            rows={results}
-            columns={[
-              { field: "name", headerName: "Favorite", minWidth: 180 },
-              {
-                headerName: "Category",
-                valueGetter: (p) => p.data.subtype.replace("urn:entity:", ""),
-              },
-              {
-                headerName: "Select",
-                sortable: false,
-                filter: false,
-                cellRenderer: ({ data: e }) => (
-                  <button
-                    disabled={
-                      !!busy ||
-                      profile.entities.some(
-                        (x) => x.entity_id === e.entity_id,
-                      ) ||
-                      profile.entities.length >= 15
-                    }
-                    onClick={() =>
-                      setProfile((p) => ({
-                        ...p,
-                        entities: [...p.entities, e],
-                      }))
-                    }
-                  >
-                    Add
-                  </button>
-                ),
-              },
-            ]}
-          />
-          <DataGrid
-            label="Selected Qloo entities"
-            rows={profile.entities}
-            searchable={false}
-            exportable={false}
-            columns={[
-              { field: "name", headerName: "Selected favorite", minWidth: 180 },
-              {
-                headerName: "Action",
-                filter: false,
-                sortable: false,
-                cellRenderer: ({ data: e }) => (
-                  <button
-                    aria-label={`Remove ${e.name}`}
-                    disabled={!!busy}
-                    onClick={() =>
-                      setProfile((p) => ({
-                        ...p,
-                        entities: p.entities.filter(
-                          (x) => x.entity_id !== e.entity_id,
-                        ),
-                      }))
-                    }
-                  >
-                    Remove
-                  </button>
-                ),
-              },
-            ]}
-          />
+              <label htmlFor="taste-category">Search category</label>
+              <select
+                id="taste-category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                {categories.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <label htmlFor="taste-query">Find a favorite</label>
+              <div className="journey-search">
+                <input
+                  id="taste-query"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Try Interstellar or a favorite book"
+                  maxLength={500}
+                  required
+                />
+                <button disabled={!!busy}>
+                  {busy === "search" ? "Searching…" : "Search"}
+                </button>
+              </div>
+            </form>
+            <p className="journey-muted">
+              Broad interests such as space exploration guide the AI. Select at
+              least one real entity below to supply cultural intelligence.
+            </p>
+            <DataGrid
+              label="search results"
+              rows={results}
+              columns={[
+                { field: "name", headerName: "Favorite", minWidth: 180 },
+                {
+                  headerName: "Category",
+                  valueGetter: (p) => p.data.subtype.replace("urn:entity:", ""),
+                },
+                {
+                  headerName: "Select",
+                  sortable: false,
+                  filter: false,
+                  cellRenderer: ({ data: e }) => (
+                    <button
+                      disabled={
+                        !!busy ||
+                        profile.entities.some(
+                          (x) => x.entity_id === e.entity_id,
+                        ) ||
+                        profile.entities.length >= 15
+                      }
+                      onClick={() =>
+                        setProfile((p) => ({
+                          ...p,
+                          entities: [...p.entities, e],
+                        }))
+                      }
+                    >
+                      Add
+                    </button>
+                  ),
+                },
+              ]}
+            />
+            <DataGrid
+              label="Selected entities"
+              rows={profile.entities}
+              searchable={false}
+              exportable={false}
+              columns={[
+                {
+                  field: "name",
+                  headerName: "Selected favorite",
+                  minWidth: 180,
+                },
+                {
+                  headerName: "Action",
+                  filter: false,
+                  sortable: false,
+                  cellRenderer: ({ data: e }) => (
+                    <button
+                      aria-label={`Remove ${e.name}`}
+                      disabled={!!busy}
+                      onClick={() =>
+                        setProfile((p) => ({
+                          ...p,
+                          entities: p.entities.filter(
+                            (x) => x.entity_id !== e.entity_id,
+                          ),
+                        }))
+                      }
+                    >
+                      Remove
+                    </button>
+                  ),
+                },
+              ]}
+            />
+          </div>
           <fieldset disabled={!!busy}>
             <legend>What would you like to learn?</legend>
             <PreferenceGrid
@@ -337,209 +372,221 @@ export default function Journey() {
               onToggle={(name) => toggle("subjects", name)}
             />
           </fieldset>
+        </div>
+        <div className="journey-actions">
+          <button
+            disabled={
+              !!busy || !profile.entities.length || !profile.subjects.length
+            }
+            onClick={() =>
+              act("save", async () => {
+                await learningApi("/taste/profile", {
+                  method: "PUT",
+                  body: profilePayload(profile),
+                });
+                setNotice("Taste profile saved.");
+                await refresh();
+              })
+            }
+          >
+            Save preferences
+          </button>
+          <button
+            className="secondary"
+            disabled={!!busy || !dashboard?.profile}
+            onClick={() =>
+              act("delete", async () => {
+                await learningApi("/taste/profile", { method: "DELETE" });
+                setProfile({
+                  interests: [],
+                  subjects: ["Astronomy"],
+                  entities: [],
+                });
+                setDiscoveries([]);
+                setNotice(
+                  "Taste profile deleted. Saved learning activities remain in your history.",
+                );
+                await refresh();
+              })
+            }
+          >
+            Delete profile
+          </button>
+        </div>
+      </section>
+      <div className="journey-grid journey-tools">
+        <section className="journey-card">
+          <p className="eyebrow">02 · AI learning agent</p>
+          <h2>Taste-Based Learning</h2>
+          <p>
+            Create an educational plan, then a quiz with explanations and an
+            independent AI answer review.
+          </p>
+          <div className="journey-controls">
+            <label>
+              Starting difficulty
+              <select
+                value={difficulty}
+                disabled={!!busy}
+                onChange={(e) => setDifficulty(e.target.value)}
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Intermediate</option>
+                <option value="hard">Hard</option>
+              </select>
+            </label>
+            <label>
+              Question format
+              <select
+                value={format}
+                disabled={!!busy}
+                onChange={(e) => setFormat(e.target.value)}
+              >
+                <option value="multiple">Multiple choice</option>
+                <option value="boolean">True / false</option>
+              </select>
+            </label>
+            <label>
+              Discover related culture
+              <select
+                value={targetType}
+                disabled={!!busy}
+                onChange={(e) => setTargetType(e.target.value)}
+              >
+                {categories.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p className="journey-muted">
+            After your first quiz, demonstrated performance sets difficulty
+            automatically.
+          </p>
           <div className="journey-actions">
             <button
               disabled={
                 !!busy || !profile.entities.length || !profile.subjects.length
               }
-              onClick={() =>
-                act("save", async () => {
-                  await learningApi("/taste/profile", {
-                    method: "PUT",
-                    body: profilePayload(profile),
-                  });
-                  setNotice("Taste profile saved.");
-                  await refresh();
-                })
-              }
+              onClick={() => generate(false)}
             >
-              Save preferences
+              {busy === "agent-quiz"
+                ? "Preparing quiz…"
+                : "Generate personalized quiz"}
             </button>
             <button
               className="secondary"
-              disabled={!!busy || !dashboard?.profile}
-              onClick={() =>
-                act("delete", async () => {
-                  await learningApi("/taste/profile", { method: "DELETE" });
-                  setProfile({
-                    interests: [],
-                    subjects: ["Astronomy"],
-                    entities: [],
-                  });
-                  setDiscoveries([]);
-                  setNotice(
-                    "Taste profile deleted. Saved learning activities remain in your history.",
-                  );
-                  await refresh();
-                })
+              disabled={
+                !!busy || !profile.entities.length || !profile.subjects.length
               }
+              onClick={() => generate(true)}
             >
-              Delete profile
+              Create learning plan
             </button>
           </div>
+          {executions[0] && (
+            <div className="journey-trace" aria-live="polite">
+              <h3>Latest agent execution · {executions[0].status}</h3>
+              <DataGrid
+                label="Agent execution steps"
+                rows={executions[0].steps}
+                searchable={false}
+                columns={[
+                  { field: "name", headerName: "Step", minWidth: 200 },
+                  { field: "status", headerName: "Status" },
+                  {
+                    headerName: "Duration",
+                    valueGetter: (p) =>
+                      p.data.durationMs != null
+                        ? `${(p.data.durationMs / 1000).toFixed(1)}s`
+                        : "Running",
+                  },
+                  { field: "error", headerName: "Details", minWidth: 170 },
+                ]}
+              />
+              {executions[0].error && <p>{executions[0].error}</p>}
+            </div>
+          )}
         </section>
-        <div className="journey-stack">
-          <section className="journey-card">
-            <p className="eyebrow">02 · AI learning agent</p>
-            <h2>Taste-Based Learning</h2>
-            <p>
-              Create an educational plan, then a quiz with explanations and an
-              independent AI answer review.
-            </p>
-            <div className="journey-controls">
-              <label>
-                Starting difficulty
-                <select
-                  value={difficulty}
-                  disabled={!!busy}
-                  onChange={(e) => setDifficulty(e.target.value)}
-                >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Intermediate</option>
-                  <option value="hard">Hard</option>
-                </select>
-              </label>
-              <label>
-                Question format
-                <select
-                  value={format}
-                  disabled={!!busy}
-                  onChange={(e) => setFormat(e.target.value)}
-                >
-                  <option value="multiple">Multiple choice</option>
-                  <option value="boolean">True / false</option>
-                </select>
-              </label>
-              <label>
-                Discover related culture
-                <select
-                  value={targetType}
-                  disabled={!!busy}
-                  onChange={(e) => setTargetType(e.target.value)}
-                >
-                  {categories.map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+        <section className="journey-card">
+          <p className="eyebrow">Cultural intelligence</p>
+          <h2>Discoveries</h2>
+          <button
+            className="secondary"
+            disabled={!!busy || !dashboard?.profile}
+            onClick={() =>
+              act("discover", async () => {
+                const d = await learningApi(
+                  `/taste/recommendations?type=${targetType}`,
+                );
+                setDiscoveries(d.entities);
+              })
+            }
+          >
+            Discover related interests
+          </button>
+          {!discoveries.length && (
             <p className="journey-muted">
-              After your first quiz, demonstrated performance sets difficulty
-              automatically.
+              Save your favorites, then discover real relationships.
             </p>
-            <div className="journey-actions">
-              <button
-                disabled={
-                  !!busy || !profile.entities.length || !profile.subjects.length
-                }
-                onClick={() => generate(false)}
-              >
-                {busy === "agent-quiz"
-                  ? "Preparing quiz…"
-                  : "Generate personalized quiz"}
-              </button>
-              <button
-                className="secondary"
-                disabled={
-                  !!busy || !profile.entities.length || !profile.subjects.length
-                }
-                onClick={() => generate(true)}
-              >
-                Create learning plan
-              </button>
-            </div>
-            {executions[0] && (
-              <div className="journey-trace" aria-live="polite">
-                <h3>Latest agent execution · {executions[0].status}</h3>
-                <DataGrid
-                  label="Agent execution steps"
-                  rows={executions[0].steps}
-                  searchable={false}
-                  columns={[
-                    { field: "name", headerName: "Step", minWidth: 200 },
-                    { field: "status", headerName: "Status" },
-                    {
-                      headerName: "Duration",
-                      valueGetter: (p) =>
-                        p.data.durationMs != null
-                          ? `${(p.data.durationMs / 1000).toFixed(1)}s`
-                          : "Running",
-                    },
-                    { field: "error", headerName: "Details", minWidth: 170 },
-                  ]}
-                />
-                {executions[0].error && <p>{executions[0].error}</p>}
-              </div>
-            )}
-          </section>
-          <section className="journey-card">
-            <p className="eyebrow">Cultural intelligence · Qloo</p>
-            <h2>Qloo-powered discoveries</h2>
-            <button
-              className="secondary"
-              disabled={!!busy || !dashboard?.profile}
-              onClick={() =>
-                act("discover", async () => {
-                  const d = await learningApi(
-                    `/taste/recommendations?type=${targetType}`,
-                  );
-                  setDiscoveries(d.entities);
-                })
-              }
-            >
-              Discover related interests
-            </button>
-            {!discoveries.length && (
-              <p className="journey-muted">
-                Save your favorites, then discover real relationships from Qloo.
-              </p>
-            )}
-            <DataGrid
-              label="Qloo discoveries"
-              rows={discoveries}
-              columns={[
-                { field: "name", headerName: "Discovery", minWidth: 180 },
-                {
-                  headerName: "Category",
-                  valueGetter: (p) => p.data.subtype.replace("urn:entity:", ""),
-                },
-                {
-                  headerName: "Tags",
-                  valueGetter: (p) =>
-                    p.data.tags
-                      .slice(0, 4)
-                      .map((t) => t.name)
-                      .join(" · "),
-                  minWidth: 180,
-                },
-                {
-                  field: "affinity",
-                  headerName: "Affinity",
-                  valueFormatter: (p) =>
-                    p.value == null ? "—" : p.value.toFixed(3),
-                },
-              ]}
-            />
-            {!!discoveries.length && (
-              <p className="journey-muted">
-                Ranked by Qloo using the entity references in your saved
-                profile. These cultural relationships inform AI examples; they
-                do not validate educational facts.
-              </p>
-            )}
-          </section>
-        </div>
+          )}
+          <DataGrid
+            label="Discoveries"
+            rows={discoveries}
+            columns={[
+              { field: "name", headerName: "Discovery", minWidth: 180 },
+              {
+                headerName: "Category",
+                valueGetter: (p) => p.data.subtype.replace("urn:entity:", ""),
+              },
+              {
+                headerName: "Tags",
+                valueGetter: (p) =>
+                  p.data.tags
+                    .slice(0, 4)
+                    .map((t) => t.name)
+                    .join(" · "),
+                minWidth: 180,
+              },
+              {
+                field: "affinity",
+                headerName: "Affinity",
+                valueFormatter: (p) =>
+                  p.value == null ? "—" : p.value.toFixed(3),
+              },
+            ]}
+          />
+          {!!discoveries.length && (
+            <p className="journey-muted">
+              Ranked by using the entity references in your saved profile. These
+              cultural relationships inform AI examples; they do not validate
+              educational facts.
+            </p>
+          )}
+        </section>
       </div>
-      <Payments revision={busy} />
-      {quiz && (
-        <section className="journey-card journey-active">
-          <p className="eyebrow">AI-generated educational content</p>
-          <h2>{quiz.title}</h2>
-          <p>
-            {quiz.subject} · {quiz.difficulty} · 5 questions
-          </p>
+      {quiz && quizOpen && (
+        <QuizDialog
+          title={quiz.title}
+          description={`${quiz.subject} · ${quiz.difficulty} · ${quiz.questions.length} questions`}
+          returnFocusId={`quiz-trigger-${quiz.id}`}
+          reviewing={!!performance}
+          busy={!!busy}
+          onClose={closeQuiz}
+        >
+          {error && (
+            <p role="alert" className="journey-error">
+              {error}
+            </p>
+          )}
+          {!performance && (
+            <p className="journey-muted">
+              Choose an answer for each question. You can close this window and
+              reopen the quiz to keep working during this visit.
+            </p>
+          )}
           {!performance ? (
             <form
               onSubmit={(e) => {
@@ -580,7 +627,7 @@ export default function Journey() {
               <button
                 disabled={
                   !!busy ||
-                  answers.filter((a) => Number.isInteger(a)).length !== 5
+                  quiz.questions.some((q, i) => !Number.isInteger(answers[i]))
                 }
               >
                 Finish & analyze
@@ -596,19 +643,45 @@ export default function Journey() {
                 answers={answers}
                 performance={performance}
               />
-              <button
-                className="secondary"
-                onClick={() => {
-                  setQuiz(null);
-                  setPerformance(null);
-                }}
-              >
+              <button className="secondary" onClick={closeQuiz}>
                 Close quiz review
               </button>
             </div>
           )}
-        </section>
+        </QuizDialog>
       )}
+      <section className="journey-card">
+        <p className="eyebrow">Your library</p>
+        <h2>Recently generated quizzes</h2>
+        {!dashboard?.quizzes.length && (
+          <p>
+            Your saved personalized quizzes will appear here. Generate a new
+            quiz to explore another set of questions.
+          </p>
+        )}
+        <DataGrid
+          label="Quiz library"
+          context={{ busy, openingQuizId, start }}
+          rows={dashboard?.quizzes || []}
+          columns={[
+            { field: "title", headerName: "Quiz", minWidth: 200 },
+            { field: "subject", headerName: "Subject" },
+            { field: "difficulty", headerName: "Difficulty" },
+            {
+              headerName: "Status",
+              valueGetter: (p) =>
+                p.data.completed ? "Completed" : "Ready to learn",
+            },
+            {
+              headerName: "Action",
+              filter: false,
+              sortable: false,
+              cellRenderer: QuizActionCell,
+              cellRendererParams: { suppressMouseEventHandling: () => true },
+            },
+          ]}
+        />
+      </section>
       <div className="journey-grid">
         <section className="journey-card">
           <p className="eyebrow">03 · Learn and adapt</p>
@@ -723,40 +796,8 @@ export default function Journey() {
           />
         </section>
       </div>
-      <section className="journey-card">
-        <p className="eyebrow">Your library</p>
-        <h2>Recently generated quizzes</h2>
-        {!dashboard?.quizzes.length && (
-          <p>
-            Your saved personalized quizzes will appear here. Generate a new
-            quiz to explore another set of questions.
-          </p>
-        )}
-        <DataGrid
-          label="Quiz library"
-          rows={dashboard?.quizzes || []}
-          columns={[
-            { field: "title", headerName: "Quiz", minWidth: 200 },
-            { field: "subject", headerName: "Subject" },
-            { field: "difficulty", headerName: "Difficulty" },
-            {
-              headerName: "Status",
-              valueGetter: (p) =>
-                p.data.completed ? "Completed" : "Ready to learn",
-            },
-            {
-              headerName: "Action",
-              filter: false,
-              sortable: false,
-              cellRenderer: ({ data: q }) => (
-                <button disabled={!!busy} onClick={() => start(q.id)}>
-                  {q.completed ? "Review" : "Start quiz"}
-                </button>
-              ),
-            },
-          ]}
-        />
-      </section>
+
+      <Payments revision={busy} />
     </div>
   );
 }

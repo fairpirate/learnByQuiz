@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, Form } from "react-router-dom";
 import spinner from "../../assets/spinner.svg";
 
 function RegisterForm({ isSubmitting: loading }) {
+  const [agreed, setAgreed] = useState(false);
+
   return (
     <>
       <Form
@@ -68,13 +70,44 @@ function RegisterForm({ isSubmitting: loading }) {
           name="confirmPw"
           placeholder="Enter your password"
         />
-        <br />
+        <div className="flex items-start mb-5">
+          <input
+            type="checkbox"
+            required
+            name="terms"
+            id="terms"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-1 h-4 w-4 text-green-400 focus:ring-green-400 border-gray-300 rounded"
+          />
+          <label
+            htmlFor="terms"
+            className="ml-2 text-xs md:text-sm text-neutral-600 leading-relaxed"
+          >
+            By signing up, you agree to the{" "}
+            <Link
+              to="/privacy-policy"
+              className="text-green-400 underline underline-offset-4 hover:text-green-500"
+            >
+              Privacy Policy
+            </Link>{" "}
+            and{" "}
+            <Link
+              to="/terms-conditions"
+              className="text-green-400 underline underline-offset-4 hover:text-green-500"
+            >
+              Terms & Conditions
+            </Link>
+            .
+          </label>
+        </div>
         <button
-          disabled={loading}
-          className={`flex rounded-full ${!loading
-            ? "bg-green-400 hover:bg-neutral-50 hover:text-green-400"
-            : "bg-green-400/70 cursor-not-allowed"
-            }  p-1 justify-center font-semibold md:font-bold text-base md:text-lg text-center mt-5 mb-3 transition text-white`}
+          disabled={loading || !agreed}
+          className={`flex rounded-full ${
+            !loading
+              ? "bg-green-400 hover:bg-neutral-50 hover:text-green-400"
+              : "bg-green-400/70 cursor-not-allowed"
+          }  p-1 justify-center font-semibold md:font-bold text-base md:text-lg text-center mt-5 mb-3 transition text-white`}
           type="submit"
         >
           {loading ? (

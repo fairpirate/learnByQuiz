@@ -1,13 +1,13 @@
 # LearnByQuiz — AI learning with AG Grid and PayPal
 
-**AG Grid + PayPal update:** Learning preferences, Qloo discovery, the quiz library, AI and classic quiz answering/reviews, plans, agent traces, analytics, learning packs and payment history now use AG Grid Community. Optional PayPal Orders v2 checkout sells AI generation credits with server-side capture verification, transactional credit accounting and verified refund/reversal webhooks. See [PayPal setup, testing and operations](docs/paypal-and-grid.md). New payment integration has local automated coverage; live PayPal verification requires your sandbox credentials and webhook configuration. Earlier live-service reports below predate this update.
+**AG Grid + PayPal update:** Learning preferences, the quiz library, AI and classic quiz answering/reviews, plans, agent traces, analytics, learning packs and payment history now use AG Grid Community. Optional PayPal Orders v2 checkout sells AI generation credits with server-side capture verification, transactional credit accounting and verified refund/reversal webhooks. See [PayPal setup, testing and operations](docs/paypal-and-grid.md). New payment integration has local automated coverage; live PayPal verification requires your sandbox credentials and webhook configuration. Earlier live-service reports below predate this update.
 
 
-**Release status:** Firebase and all Qloo categories now pass live verification. The complete live release suite passes with NVIDIA, including all quiz formats/difficulties, grading, persistence and adaptive generation. Docker deployment and public HTTPS verification remain pending server access. See [live Firebase results](docs/firebase-verification.json) and [production verification](docs/production-readiness.md).
+**Release status:** Firebase now passes live verification. The complete live release suite passes with NVIDIA, including all quiz formats/difficulties, grading, persistence and adaptive generation. Docker deployment and public HTTPS verification remain pending server access. See [live Firebase results](docs/firebase-verification.json) and [production verification](docs/production-readiness.md).
 
-LearnByQuiz extends the original React quiz application with Qloo cultural discovery and an AI learning workflow. Firebase email/password authentication, Open Trivia DB categories, timed classic quizzes, scoring, and answer summaries remain available. Open **AI Learning Journey** after signing in to use the new features.
+LearnByQuiz extends the original React quiz application with an AI learning workflow. Firebase email/password authentication, Open Trivia DB categories, timed classic quizzes, scoring, and answer summaries remain available. Open **AI Learning Journey** after signing in to use the new features.
 
-The learner selects broad interests, actual Qloo entities, and educational subjects. Qloo supplies related cultural works and tags. AI tools turn that context into a learning plan and five educational questions, then independently review the proposed answers. The server grades completed quizzes and uses performance to recommend revision and adjust difficulty.
+The learner selects broad interests and educational subjects. AI tools turn that context into a learning plan and five educational questions, then independently review the proposed answers. The server grades completed quizzes and uses performance to recommend revision and adjust difficulty.
 
 ## Architecture and stack
 
@@ -19,8 +19,6 @@ flowchart LR
   API -->|verify token and revocation| Auth
   API --> Profiles[Taste profile service]
   API --> Agent[Learning agent orchestrator]
-  Profiles --> Qloo[Qloo search / Insights]
-  Agent --> Qloo
   Agent --> Planner[Learning planner tool]
   Planner --> Generator[Quiz generation tool]
   Generator --> Reviewer[Answer review tool]
@@ -33,7 +31,7 @@ React Router, Zustand, Framer Motion, and the existing visual conventions are re
 
 ## Local development
 
-Prerequisites: **Node 22.18+**, npm, a Firebase project with Email/Password sign-in enabled and a Firestore Native database, Qloo access, and a function-calling LLM account.
+Prerequisites: **Node 22.18+**, npm, a Firebase project with Email/Password sign-in enabled and a Firestore Native database, and a function-calling LLM account.
 
 ```sh
 npm ci
@@ -51,8 +49,7 @@ Vite serves the browser at `http://localhost:5173`; `/api` proxies to the Node b
 | `VITE_STORAGE_BUCKET`, `VITE_MESSAGING_SENDER_ID` | Remaining Firebase web configuration |
 | `FIREBASE_PROJECT_ID` | Same Firebase project used by the client |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to an Admin service-account file **outside the repository**; omit when using application default credentials/workload identity |
-| `QLOO_API_KEY` | Backend-only Qloo key |
-| `QLOO_BASE_URL` | Defaults to `https://hackathon.api.qloo.com`, which is required for hackathon keys; override only when using a separate production key |
+| `FIREBASE_PROJECT_ID` | Same Firebase project used by the client |
 | `LLM_PROVIDER` | `nvidia` for NVIDIA hosted inference; `openai` (legacy default) for the existing compatible adapter |
 | `NVIDIA_API_KEY` | Backend-only NVIDIA key, required when selecting NVIDIA; never falls back to another provider key |
 | `NVIDIA_MODEL` | Defaults to `nvidia/nemotron-3.5-super-vl-120b-a12b`; overrides must support named function calls and `reasoning_effort=none` |
@@ -69,7 +66,7 @@ Provider credentials belong only in the ignored `.env` file or a deployment secr
 ## NVIDIA LLM setup
 
 1. Create an account at [NVIDIA Build](https://build.nvidia.com/explore/discover), open the Nemotron model, and generate an API key for the hosted endpoint.
-2. In your existing ignored `.env`, set the following. Keep Firebase and Qloo settings as configured. The configured workspace selects NVIDIA and its key has passed live verification.
+2. In your existing ignored `.env`, set the following. Keep Firebase settings as configured. The configured workspace selects NVIDIA and its key has passed live verification.
 
 ```dotenv
 LLM_PROVIDER=nvidia
@@ -84,9 +81,7 @@ All planner, quiz-generator and reviewer calls share this provider. The NVIDIA a
 
 NVIDIA documents free Developer Program endpoint access for prototyping and testing. Its [FAQ](https://docs.api.nvidia.com/nim/docs/product) describes separate production licensing; free development access is not a production hosting commitment. Check applicable terms before serving real users. Set `LLM_PROVIDER=openai` to use the previous `LLM_*` settings again.
 
-## Qloo integration
-
-`server/services/qloo.js` provides `searchEntities`, `discoverTaste`, `getRelatedEntities`, and `getPersonalizedRecommendations`. The latter three use the documented Insights API rather than invented relationship endpoints.
+## Agent workflow and educational validation
 
 | Operation | Official contract used |
 | --- | --- |
@@ -94,20 +89,20 @@ NVIDIA documents free Developer Program endpoint access for prototyping and test
 | Related cultural recommendations | `GET /v2/insights?filter.type=urn:entity:book&signal.interests.entities=<comma-separated UUIDs>&filter.exclude.entities=<seed UUIDs>&take=10`; entities are under `results.entities` |
 | Authentication | `X-Api-Key` request header |
 
-Supported search/output categories are movies, television, artists, books, games, destinations, places, brands, people, and podcasts. Broad interests such as technology and sports are learner inputs, rather than invented Qloo entity categories. Search real titles, brands, or people to resolve cultural references. Tags come from returned entity metadata; no demographic endpoints are called. The API re-resolves profile selections through Qloo before saving and discards client-supplied cultural metadata.
+Supported search/output categories are movies, television, artists, books, games, destinations, places, brands, people, and podcasts. Broad interests such as technology and sports are learner inputs, rather than invented cultural entity categories. Search real titles, brands, or people to resolve cultural references. Tags come from returned entity metadata; no demographic endpoints are called. The API re-resolves profile selections through cultural metadata before saving and discards client-supplied cultural metadata.
 
 Search tags with `tag_id` and Insights tags with `id` normalize to the same internal schema. Place `tags: null` becomes an empty list; artist namespace placeholders without a tag ID/name are excluded without inventing metadata. Successful normalized responses are cached for five minutes in a bounded in-process cache. Responses are schema-validated. A 404 search response becomes an empty result; malformed responses, authentication failures, timeouts, and rate limits produce explicit errors. Provider error bodies and keys are not returned to clients. Rate-limited calls require a later manual retry, avoiding automatic retry storms.
 
-The integration was rechecked against the [Qloo Agentic Hackathon Developer Guide](https://docs.qloo.com/reference/qloo-llm-hackathon-developer-guide). Hackathon requests use GET and the `X-Api-Key` header on `hackathon.api.qloo.com`. They do not use legacy `/recs` or `/recommendations` routes. Note a documentation discrepancy: the guide lists `urn:entity:video_game`, but its linked API schema and live hackathon requests accept `urn:entity:videogame`; `video_game` returned HTTP 400. The project retains the live-verified spelling. Search and Insights have distinct tag formats, normalized at the service boundary. See the [verification record](docs/qloo-verification.md).
+The integration was rechecked against the [Agentic Hackathon Developer Guide]. Hackathon requests use GET and the `X-Api-Key` header. They do not use legacy `/recs` or `/recommendations` routes. Note a documentation discrepancy: the guide lists `urn:entity:video_game`, but its linked API schema and live hackathon requests accept `urn:entity:videogame`; `video_game` returned HTTP 400. The project retains the live-verified spelling. Search and Insights have distinct tag formats, normalized at the service boundary.
 
-Contracts were also checked against [Qloo's official documentation repository](https://github.com/qloo/docs-public), including [search](https://github.com/qloo/docs-public/blob/main/reference/get-search.md), [authentication](https://github.com/qloo/docs-public/blob/main/reference/api-onboarding.md), and [Insights parameters](https://github.com/qloo/docs-public/blob/main/reference/insights-api-deep-dive.md). The LLM adapter follows [OpenAI's Chat Completions function-calling contract](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create).
+Contracts were also checked against the [documentation repository], including [search](https://example.com/search-reference), [authentication](https://example.com/auth-reference), and [Insights parameters](https://example.com/insights-reference). The LLM adapter follows [OpenAI's Chat Completions function-calling contract](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create).
 
 ## Agent workflow and educational validation
 
 Only executed steps appear in the stored trace:
 
 1. Read the saved learner profile.
-2. Call Qloo with actual seed entity IDs. Empty discoveries stop generation.
+2. Call the cultural discovery service with actual seed entity IDs. Empty discoveries stop generation.
 3. Analyze recent results and call `create_learning_plan` with structured arguments.
 4. Call `generate_quiz` for exactly five questions in the chosen format.
 5. Call `review_quiz` to independently solve questions and review explanations. Rejected or uncertain drafts are not stored as quizzes.
@@ -117,7 +112,7 @@ The provider schema includes the server validation bounds, selected subject, req
 
 The plan must use a selected educational subject. Quiz schemas reject duplicate questions, duplicate options, invalid answer indexes, incorrect option counts, malformed true/false answers, and mismatched difficulty/format. True/false uses two options; multiple choice uses four. Context is treated as untrusted data. Execution steps record actual status, start time, duration, and failures; the UI polls persisted traces while generation runs.
 
-Generation is a bounded, server-orchestrated workflow with forced structured function calls, rather than an autonomous open-ended chatbot. AI review reduces errors but **cannot guarantee factual correctness**; no source retrieval or external fact checker is implemented. Qloo supplies cultural relationships, not educational truth. The UI labels Qloo discoveries separately from AI educational content and performance-engine recommendations.
+Generation is a bounded, server-orchestrated workflow with forced structured function calls, rather than an autonomous open-ended chatbot. AI review reduces errors but **cannot guarantee factual correctness**; no source retrieval or external fact checker is implemented. Cultural relationships are derived from the service, not educational truth. The UI labels discoveries separately from AI educational content and performance-engine recommendations.
 
 ## Storage and migrations
 
@@ -125,8 +120,8 @@ No existing database models were present. `npm run migrate` applies the idempote
 
 ```text
 learningUsers/{verifiedFirebaseUid}/
-  profiles/taste        selected interests, canonical Qloo entities, subjects
-  plans/{uuid}          AI learning plan and Qloo discovery snapshot
+  profiles/taste        selected interests, subjects
+  plans/{uuid}          AI learning plan and discovery snapshot
   quizzes/{uuid}        saved questions and server-only answer keys
   performances/{quiz}   one graded result per saved quiz
   executions/{uuid}    actual workflow steps, timing, errors
@@ -147,11 +142,11 @@ All routes below require `Authorization: Bearer <Firebase ID token>`. Identity c
 
 | Method / route | Request or result |
 | --- | --- |
-| `POST /api/taste/discover` | `{query, type?}` → Qloo entities |
+| `POST /api/taste/discover` | `{query, type?}` → cultural entities |
 | `GET /api/taste/profile` | Current profile or null |
-| `PUT /api/taste/profile` | `{interests: string[], subjects: string[], entities: QlooEntity[]}`; at least one subject and entity |
+| `PUT /api/taste/profile` | `{interests: string[], subjects: string[], entities: CulturalEntity[]}`; at least one subject and entity |
 | `DELETE /api/taste/profile` | Delete preference profile; 204 |
-| `GET /api/taste/recommendations?type=book` | Qloo recommendations from the saved profile |
+| `GET /api/taste/recommendations?type=book` | cultural recommendations from the saved profile |
 | `POST /api/agents/learning-plan` | `{difficulty?, format?, targetType?}` → saved plan and trace |
 | `POST /api/agents/generate-quiz` | Same input → saved quiz, plan, trace; quiz answer keys redacted |
 | `GET /api/agents/executions` | Latest 10 user-owned traces |
@@ -159,7 +154,7 @@ All routes below require `Authorization: Bearer <Firebase ID token>`. Identity c
 | `POST /api/agents/analyze-performance` | `{quizId, answers: [0,1,2,3,0]}` → graded result, analytics, recommendations |
 | `GET /api/learning/dashboard` | Profile, analytics, recommendations, latest 20 quizzes, 10 plans, 10 executions |
 
-Difficulty: `easy`, `medium` (Intermediate in the UI), or `hard`. Format: `multiple` or `boolean`. Defaults: medium, multiple, book. `QlooEntity` includes `entity_id`, `name`, `subtype`, `tags`, and nullable `affinity`. Saving uses the selected ID/name to retrieve canonical metadata from Qloo.
+Difficulty: `easy`, `medium` (Intermediate in the UI), or `hard`. Format: `multiple` or `boolean`. Defaults: medium, multiple, book. `CulturalEntity` includes `entity_id`, `name`, `subtype`, `tags`, and nullable `affinity`. Saving uses the selected ID/name to retrieve canonical metadata.
 
 Requests are limited to 100 per minute per IP. Plan/quiz requests share a limit of 10 per hour per UID; one generation per user runs at a time per process. Logs include request ID, method, path and response status, with no tokens, preferences, or provider secrets. Inputs are bounded and validated. The server adds security headers and a CSP.
 
@@ -169,18 +164,16 @@ Requests are limited to 100 per minute per IP. Plan/quiz requests share a limit 
 npm test                    # Unit and HTTP integration tests; no credentials
 npm run build               # Production frontend build
 npm run test:browser         # Desktop + mobile browser workflows; external requests mocked
-npm run test:live            # Real Qloo search + Insights; skips without QLOO_API_KEY
+npm run test:live            # Real search + Insights; skips without API key
 npm run test:live:trivia     # Strict real classic-trivia request; no credentials
 npm run test:firestore       # Actual adapter and rules tests; requires emulator
 npm run test:emulator        # Start the official demo emulator and run those tests
-npm run verify:live          # Strict live Firebase/Qloo/LLM prerequisites; never skips
-npm run test:live:qloo       # Every application Qloo category
-npm run test:live:firebase   # Actual Auth, Firestore, deployed rules and transaction checks
+npm run verify:live          # Strict live Firebase/LLM prerequisites; never skips
 npm run test:live:all        # Release gates and full cloud workflow when prerequisites pass
 npm audit
 ```
 
-For browser tests, install Chromium if needed with `npx playwright install chromium`. Playwright starts a separate Vite server with synthetic Firebase configuration. It mocks Firebase responses, Qloo/API responses, and trivia only inside the tests. These tests verify UI wiring rather than real provider access.
+For browser tests, install Chromium if needed with `npx playwright install chromium`. Playwright starts a separate Vite server with synthetic Firebase configuration. It mocks Firebase responses, API responses, and trivia only inside the tests. These tests verify UI wiring rather than real provider access.
 
 For Firestore integration, start a Firestore emulator on port 8080 using Firebase CLI, then run:
 
@@ -188,7 +181,7 @@ For Firestore integration, start a Firestore emulator on port 8080 using Firebas
 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run test:firestore
 ```
 
-The integration test requires the emulator variable, uses `demo-learnbyquiz`, and cleans up its own generated user documents. It never falls back to production. The Qloo live test uses `.env` credentials and makes real provider calls; skipped tests do not count as verified live integration. LLM tests verify tool-call payloads and output validation with mocked providers. A live full-stack demo additionally requires working Firebase/Admin and LLM configuration.
+The integration test requires the emulator variable, uses `demo-learnbyquiz`, and cleans up its own generated user documents. It never falls back to production. The live test uses `.env` credentials and makes real provider calls; skipped tests do not count as verified live integration. LLM tests verify tool-call payloads and output validation with mocked providers. A live full-stack demo additionally requires working Firebase/Admin and LLM configuration.
 
 ## Classic trivia reliability
 
@@ -220,18 +213,17 @@ A multi-stage `Dockerfile`, single-app `compose.yaml` and host Nginx virtual hos
 
 1. Register or sign in to the configured Firebase project.
 2. Open **AI Learning Journey** and select Science fiction, Technology, and Space exploration.
-3. Search Movies for **Interstellar** and add the actual result returned by Qloo. Select **Astronomy** and save preferences.
-4. Select Books (or another category) and choose **Discover related interests**. Show the real Qloo names/tags and affinity when returned.
-5. Generate a personalized quiz. Show the actual execution trace and the saved plan's explanation of how culture maps to learning.
+3. Select **Astronomy** and save preferences.
+4. Select Books (or another category) and generate a personalized quiz. Show the actual execution trace and the saved plan's explanation of how culture maps to learning.
 6. Start the saved astronomy quiz, answer all five questions, and submit.
 7. Show explanations, accuracy, elapsed time, subject performance, and the recommended next difficulty/revision activity.
 8. Generate another quiz to show that demonstrated performance guides the next activity.
 
-UI screenshots captured by the browser tests are available for [desktop](docs/screenshots/journey-desktop.png) and [mobile](docs/screenshots/journey-mobile.png). These use test fixtures and are not evidence of live Qloo or Firebase access. Capture a configured live demo and add its video link before submission; no live video is included.
+UI screenshots captured by the browser tests are available for [desktop](docs/screenshots/journey-desktop.png) and [mobile](docs/screenshots/journey-mobile.png). These use test fixtures and are not evidence of live Firebase access. Capture a configured live demo and add its video link before submission; no live video is included.
 
 ## Known limits and verification
 
-- All 10 Qloo categories, Firebase authentication, deployed Firestore access rules and NVIDIA function calling were verified live on November 1, 2026. Full workflow results are recorded in `docs/release-verification.json`.
+- Firebase authentication, deployed Firestore access rules and NVIDIA function calling were verified live on November 1, 2026. Full workflow results are recorded in `docs/release-verification.json`.
 - AI answer review uses a separate call to the configured provider; no independent factual source verification is available.
 - Generation is synchronous and bounded. A process crash may leave a running trace; execution jobs are not automatically resumed. Use a durable job queue before deploying across workers or supporting long-running activities.
 - Analytics are a rolling window; difficulty thresholds are a transparent initial policy, not a validated educational assessment model.

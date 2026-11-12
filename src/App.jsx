@@ -30,10 +30,9 @@ function App() {
         to="/journey"
         className="mb-8 rounded-xl border border-green-200 bg-green-50 p-5 text-green-800"
       >
-        Explore Taste-Based Learning →
+        Explore AI Learning Journey →
         <span className="block mt-2 text-xs">
-          Discover your interests with Qloo and create a personalized AI
-          learning journey.
+          Create a personalized AI learning journey based on your interests.
         </span>
       </Link>
       <h3 className="text-xs md:text-sm text-neutral-600 font-semibold mb-3">

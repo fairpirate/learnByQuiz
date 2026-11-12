@@ -17,6 +17,8 @@ import {
 import LoginPage from "./pages/Login/LoginPage";
 import Question from "./pages/Question/Question";
 import RegisterPage from "./pages/Register/RegisterPage";
+import PrivacyPolicy from "./pages/PrivacyPolicy/PrivacyPolicy";
+import TermsConditions from "./pages/TermsConditions/TermsConditions";
 import NotFound from "./pages/NotFound/NotFound";
 import RequireAuth from "./pages/Require/RequireAuth";
 import RequireLogout from "./pages/Require/RequireLogout";
@@ -43,6 +45,8 @@ const router = createBrowserRouter(
           element={<RegisterPage />}
           action={registerAction}
         />
+        <Route path="privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="terms-conditions" element={<TermsConditions />} />
       </Route>
 
       <Route element={<RequireAuth />}>

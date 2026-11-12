@@ -131,22 +131,19 @@ export class LearningAgent {
           );
         return p;
       });
-      const discoveries = await step(
-        "Discover related culture with Qloo",
-        async () => {
-          const entities = await this.qloo.getPersonalizedRecommendations(
-            profile,
-            input.targetType,
-          );
-          if (!entities.length)
-            throw new AppError(
-              422,
-              "NO_DISCOVERIES",
-              "Qloo found no related entities. Try another discovery category.",
+      let discoveries = [];
+      if (this.qloo) {
+        discoveries = await step(
+          "Discover related culture with Qloo",
+          async () => {
+            const entities = await this.qloo.getPersonalizedRecommendations(
+              profile,
+              input.targetType,
             );
-          return entities;
-        },
-      );
+            return entities;
+          },
+        );
+      }
       const records = await this.repo.list(uid, "performances", 100);
       const analytics = analyzePerformance(records),
         recommendations = recommend(profile, analytics);

@@ -12,18 +12,13 @@ import {
 } from "./helpers.js";
 const quizId = "8b9617a4-1517-4b30-915f-4ab014b28bf9";
 function setup() {
-  const repo = new MemoryRepository(),
-    qloo = {
-      searchEntities: async () => [entity],
-      getPersonalizedRecommendations: async () => [entity],
-    };
-  const agent = new LearningAgent({ repo, qloo, llm: fakeLLM() });
+  const repo = new MemoryRepository();
+  const agent = new LearningAgent({ repo, llm: fakeLLM() });
   return {
     repo,
     api: request(
       createApp({
         repo,
-        qloo,
         agent,
         verifyToken: async (token) => {
           if (!["alice", "bob"].includes(token)) throw new Error();
@@ -143,7 +138,7 @@ test("unknown quiz and malformed answers cannot write performance", async () => 
     .expect(400);
   assert.equal((await repo.list("alice", "performances")).length, 0);
 });
-test("canonical Qloo metadata replaces user supplied tags and invented references are rejected", async () => {
+test("entity tags are persisted as-is without Qloo validation", async () => {
   const { api } = setup();
   const input = {
     ...profile,
@@ -154,12 +149,15 @@ test("canonical Qloo metadata replaces user supplied tags and invented reference
     .auth("alice", { type: "bearer" })
     .send(input)
     .expect(200);
-  assert.deepEqual(saved.body.profile.entities[0].tags, []);
+  assert.deepEqual(saved.body.profile.entities[0].tags, [
+    { id: "untrusted", name: "Invented" },
+  ]);
+  // Without Qloo validation, entities are persisted as-is without Qloo lookup.
   await api
     .put("/api/taste/profile")
     .auth("alice", { type: "bearer" })
     .send({ ...profile, entities: [{ ...entity, entity_id: quizId }] })
-    .expect(400);
+    .expect(200);
 });
 test("generation rate limit applies per authenticated user", async () => {
   const { api } = setup();
@@ -200,7 +198,6 @@ test("malformed and oversized requests return safe structured errors", async () 
 test("Firebase service outages and database permission failures are not mislabeled as invalid sessions", async () => {
   const base = {
     repo: new MemoryRepository(),
-    qloo: {},
     agent: {},
     logger: () => {},
   };

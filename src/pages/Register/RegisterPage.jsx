@@ -36,6 +36,13 @@ export async function action({ request }) {
   const email = formData.get("email").trim();
   const password = formData.get("password");
   const confirmPwd = formData.get("confirmPw");
+  const terms = formData.get("terms");
+
+  if (!terms)
+    return {
+      type: "ERROR",
+      msg: "Please agree to the Privacy Policy and Terms & Conditions before signing up.",
+    };
 
   if (password !== confirmPwd)
     return {
