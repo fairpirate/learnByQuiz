@@ -1,0 +1,59 @@
+{
+  "checkedAt": "2026-11-12T06:22:11.345Z",
+  "scope": "AG Grid and PayPal local implementation",
+  "checks": [
+    {
+      "name": "Backend unit and HTTP suite",
+      "passed": 55,
+      "failed": 0
+    },
+    {
+      "name": "Real Firestore emulator persistence, concurrency and access rules",
+      "passed": 2,
+      "failed": 0
+    },
+    {
+      "name": "Desktop/mobile learning and classic quiz browser workflows",
+      "passed": 10,
+      "failed": 0
+    },
+    {
+      "name": "Desktop/mobile fixture PayPal checkout, return capture and history filtering",
+      "passed": 2,
+      "failed": 0
+    },
+    {
+      "name": "Production frontend build",
+      "status": "passed",
+      "note": "AG Grid is lazy-loaded; its shared chunk exceeds the default Vite 500 kB warning threshold."
+    },
+    {
+      "name": "Production entry smoke test",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "name": "Formatting and git diff whitespace checks",
+      "status": "passed"
+    },
+    {
+      "name": "npm audit fix --ignore-scripts",
+      "status": "passed",
+      "vulnerabilities": 0
+    }
+  ],
+  "livePayPal": {
+    "status": "not_verified",
+    "missingConfiguration": [
+      "PAYPAL_CLIENT_ID",
+      "PAYPAL_CLIENT_SECRET",
+      "PAYPAL_WEBHOOK_ID",
+      "APP_ORIGIN"
+    ],
+    "required": "Real sandbox approval, capture and webhook delivery must be verified before live checkout."
+  },
+  "limits": [
+    "Run a single API process with the existing generation/rate-limit architecture.",
+    "A process crash may leave reserved credits requiring the documented operator recovery procedure."
+  ]
+}

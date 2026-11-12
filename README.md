@@ -1,4 +1,7 @@
-# LearnByQuiz — taste-aware learning
+# LearnByQuiz — AI learning with AG Grid and PayPal
+
+**AG Grid + PayPal update:** Learning preferences, Qloo discovery, the quiz library, AI and classic quiz answering/reviews, plans, agent traces, analytics, learning packs and payment history now use AG Grid Community. Optional PayPal Orders v2 checkout sells AI generation credits with server-side capture verification, transactional credit accounting and verified refund/reversal webhooks. See [PayPal setup, testing and operations](docs/paypal-and-grid.md). New payment integration has local automated coverage; live PayPal verification requires your sandbox credentials and webhook configuration. Earlier live-service reports below predate this update.
+
 
 **Release status:** Firebase and all Qloo categories now pass live verification. The complete live release suite passes with NVIDIA, including all quiz formats/difficulties, grading, persistence and adaptive generation. Docker deployment and public HTTPS verification remain pending server access. See [live Firebase results](docs/firebase-verification.json) and [production verification](docs/production-readiness.md).
 

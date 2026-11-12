@@ -126,6 +126,16 @@ function mockLearning(page) {
         },
       ],
     };
+    if (path === "/api/payments/account")
+      return route.fulfill({
+        json: {
+          enabled: false,
+          environment: "sandbox",
+          packs: [],
+          wallet: null,
+          purchases: [],
+        },
+      });
     if (path === "/api/learning/dashboard")
       return route.fulfill({
         json: {
@@ -205,15 +215,18 @@ test("taste profile, generated quiz, review and adaptive dashboard work", async 
   await expect(
     page.getByRole("heading", { name: "Your AI Learning Journey" }),
   ).toBeVisible();
-  for (const name of ["Science fiction", "Technology", "Space exploration"])
-    await page.getByLabel(name, { exact: true }).check();
+  for (const name of ["Science fiction", "Technology", "Space exploration"]) {
+    const checkbox = page.getByLabel(name, { exact: true });
+    await checkbox.click();
+    await expect(checkbox).toBeChecked();
+  }
   await page.getByLabel("Find a favorite in Qloo").fill("Interstellar");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page.getByRole("status")).toContainText("Taste profile saved");
   await page.screenshot({
-    path: `docs/screenshots/journey-${test.info().project.name}.png`,
+    path: `test-results/journey-${test.info().project.name}.png`,
     fullPage: true,
   });
   await page
@@ -221,14 +234,23 @@ test("taste profile, generated quiz, review and adaptive dashboard work", async 
     .click();
   await expect(page.getByRole("button", { name: "Start quiz" })).toBeVisible();
   await page.getByRole("button", { name: "Start quiz" }).click();
+  for (let i = 0; i < 5; i++) {
+    const answer = page.locator(`input[name=q${i}]`).first();
+    await answer.click();
+    await expect(answer).toBeChecked();
+  }
   for (let i = 0; i < 5; i++)
-    await page.locator(`input[name=q${i}]`).first().check();
+    await expect(page.locator(`input[name=q${i}]`).first()).toBeChecked();
   await page.getByRole("button", { name: "Finish & analyze" }).click();
   await expect(page.getByText("100% correct · 30s")).toBeVisible();
   await expect(
     page.getByText("Continue based on strong astronomy performance."),
   ).toBeVisible();
-  await expect(page.getByText("Educational explanation.")).toHaveCount(5);
+  await expect(
+    page
+      .getByRole("region", { name: "Quiz answer review" })
+      .getByText("Educational explanation.", { exact: true }),
+  ).toHaveCount(5);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -365,4 +387,98 @@ test("unavailable trivia settings allow choosing a different quiz", async ({
     page.getByRole("button", { name: "Start", exact: true }),
   ).toBeVisible({ timeout: 12000 });
   expect(requests).toBe(2);
+});
+
+test("PayPal pack checkout, return capture, payment recovery and filtering work", async ({
+  page,
+}) => {
+  await mockLearning(page);
+  const purchaseId = "c933ca2b-786f-4dd4-86c0-161ed6782898";
+  let purchase = null,
+    captured = false,
+    captureCalls = 0;
+  const pack = {
+    id: "starter",
+    name: "Learning starter",
+    credits: 10,
+    amount: "5.00",
+    currency: "USD",
+  };
+  await page.route("http://127.0.0.1:4173/api/payments/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/account"))
+      return route.fulfill({
+        json: {
+          enabled: true,
+          environment: "sandbox",
+          wallet: { balance: captured ? 13 : 3 },
+          packs: [pack],
+          purchases: purchase ? [purchase] : [],
+        },
+      });
+    if (path.endsWith("/orders")) {
+      const body = route.request().postDataJSON();
+      expect(Object.keys(body).sort()).toEqual(["id", "packId"]);
+      expect(body.packId).toBe("starter");
+      expect(body.id).toMatch(/^[a-f0-9-]{36}$/);
+      purchase = {
+        ...pack,
+        id: purchaseId,
+        packId: pack.id,
+        orderId: "ORDER123",
+        status: "CREATED",
+        createdAt: new Date().toISOString(),
+        approvalUrl:
+          "https://www.sandbox.paypal.com/checkoutnow?token=ORDER123",
+      };
+      return route.fulfill({ json: { purchase } });
+    }
+    if (path.endsWith(`/${purchaseId}/capture`)) {
+      captureCalls++;
+      captured = true;
+      purchase.status = "COMPLETED";
+      return route.fulfill({ json: { purchase } });
+    }
+    return route.fulfill({ status: 404, json: {} });
+  });
+  await page.route("https://www.sandbox.paypal.com/checkoutnow**", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: "<h1>Sandbox buyer approval</h1>",
+    }),
+  );
+  await signIn(page);
+  await page
+    .getByRole("link", { name: "AI Learning Journey", exact: true })
+    .click();
+  await expect(
+    page.getByText("3 credits available", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Buy with PayPal" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Sandbox buyer approval" }),
+  ).toBeVisible();
+  await page.goto(`/journey?purchase=${purchaseId}&token=ORDER123`);
+  await expect(
+    page.getByText("Payment verified. Your learning credits are ready."),
+  ).toBeVisible();
+  await expect(
+    page.getByText("13 credits available", { exact: false }),
+  ).toBeVisible();
+  expect(captureCalls).toBe(1);
+  const history = page.getByRole("region", {
+    name: "Payment history",
+    exact: true,
+  });
+  await expect(history.getByText("COMPLETED", { exact: true })).toBeVisible();
+  await history.getByRole("searchbox").fill("does-not-exist");
+  await expect(
+    history.getByText("No Matching Rows", { exact: true }).first(),
+  ).toBeVisible();
+  await history.getByRole("searchbox").fill("");
+  await history.getByRole("button", { name: "Check payment" }).click();
+  await expect(
+    page.getByText("13 credits available", { exact: false }),
+  ).toBeVisible();
+  expect(captureCalls).toBe(2);
 });

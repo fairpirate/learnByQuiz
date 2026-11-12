@@ -2,10 +2,12 @@ import useQuestionStore from "../../store/zustand";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import AnimateProvider from "../../components/AnimateProvider/AnimateProvider";
-import Question from "../../components/Questions/Questions";
+import DataGrid from "../../components/Grid/DataGrid";
+import he from "he";
 
 function Success() {
   const {
+    userAnswer,
     trueAnswer,
     falseAnswer,
     resetQuestion,
@@ -30,7 +32,7 @@ function Success() {
     navigate("/");
   };
   return (
-    <AnimateProvider className="flex flex-col space-y-10 md:max-w-xl md:mx-auto">
+    <AnimateProvider className="flex flex-col space-y-10 md:max-w-5xl md:mx-auto">
       <h3 className="text-lg text-center text-neutral-900 font-bold md:text-xl">
         Your Final score is
       </h3>
@@ -68,15 +70,27 @@ function Success() {
       <h3 className="text-center text-neutral-600 font-semibold md:text-lg pt-[100px]">
         Answer
       </h3>
-      {allQuestion.map((question, i) => (
-        <Question
-          key={i}
-          singleQuestion={question}
-          id={i + 1}
-          summary={true}
-          trueAnswer={question.correct_answer}
-        />
-      ))}
+      <DataGrid
+        label="Classic quiz review"
+        rows={allQuestion.map((q, i) => ({
+          id: i,
+          question: he.decode(q.question),
+          answer: he.decode(
+            userAnswer.find((a) => a.question === q.question)?.answer ||
+              "Not answered",
+          ),
+          correctAnswer: he.decode(q.correct_answer),
+        }))}
+        columns={[
+          { field: "question", headerName: "Question", minWidth: 240, flex: 2 },
+          { field: "answer", headerName: "Your answer", minWidth: 160 },
+          {
+            field: "correctAnswer",
+            headerName: "Correct answer",
+            minWidth: 160,
+          },
+        ]}
+      />
     </AnimateProvider>
   );
 }

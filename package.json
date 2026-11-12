@@ -17,7 +17,7 @@
     "migrate": "node scripts/migrate.js",
     "test:browser": "playwright test",
     "test:firestore": "node --test --test-concurrency=1 server/tests/firestore.integration.js server/tests/firestore.rules.integration.js",
-    "format:check": "prettier --check server scripts src/App.jsx src/api/learning.js src/api/trivia.js src/store/zustand.jsx src/pages/Question/Question.jsx src/pages/Journey playwright.config.js tests/browser",
+    "format:check": "prettier --check server scripts src/App.jsx src/api/learning.js src/api/trivia.js src/store/zustand.jsx src/pages/Question/Question.jsx src/pages/Question/SingleQuestion.jsx src/pages/Success/Success.jsx src/components/Grid src/components/Questions/Questions.jsx src/pages/Journey playwright.config.js tests/browser",
     "verify:live": "node scripts/verify-live.js",
     "test:live:qloo": "node --test server/tests/qloo.matrix.live.js",
     "test:emulator": "node scripts/test-emulator.js",
@@ -26,9 +26,12 @@
     "test:live:all": "node scripts/release-check.js --live",
     "test:live:firebase": "node --test server/tests/firebase.live.js",
     "test:live:llm": "node --test server/tests/llm.live.js",
-    "test:live:trivia": "node --test server/tests/trivia.live.js"
+    "test:live:trivia": "node --test server/tests/trivia.live.js",
+    "recover:credit": "node scripts/recover-credit.js"
   },
   "dependencies": {
+    "ag-grid-community": "^36.3.0",
+    "ag-grid-react": "^36.3.0",
     "dayjs": "^1.11.7",
     "dotenv": "^16.6.1",
     "express": "^5.3.0",

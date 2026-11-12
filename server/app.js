@@ -12,11 +12,13 @@ import {
   text,
 } from "./schemas.js";
 import { analyzePerformance, recommend } from "./services/analytics.js";
+import { creditPacks } from "./services/paypal.js";
 import { publicQuiz } from "./services/agent.js";
 export function createApp({
   repo,
   qloo,
   agent,
+  paypal,
   verifyToken,
   logger = console.info,
   staticDir,
@@ -76,6 +78,26 @@ export function createApp({
       handler: limited,
     }),
   );
+  app.post(
+    "/api/payments/webhook",
+    express.json({ limit: "128kb" }),
+    async (req, res) => {
+      if (!paypal)
+        throw new AppError(
+          503,
+          "PAYPAL_UNAVAILABLE",
+          "PayPal is not configured.",
+        );
+      z.object({
+        id: z.string().min(1).max(128),
+        event_type: z.string().min(1).max(128),
+      })
+        .passthrough()
+        .parse(req.body);
+      await paypal.webhook(req.headers, req.body);
+      res.sendStatus(204);
+    },
+  );
   app.use("/api", async (req, res, next) => {
     res.set("Cache-Control", "no-store");
     const match = /^Bearer (\S+)$/.exec(req.headers.authorization || "");
@@ -110,6 +132,43 @@ export function createApp({
     }
   });
   app.use(express.json({ limit: "32kb" }));
+  app.get("/api/payments/account", async (req, res) => {
+    res.json({
+      enabled: !!paypal?.enabled,
+      environment: paypal?.environment || "sandbox",
+      packs: creditPacks,
+      wallet: paypal?.enabled ? await repo.wallet(req.uid) : null,
+      purchases: await repo.list(req.uid, "purchases", 50),
+    });
+  });
+  app.post("/api/payments/orders", async (req, res) => {
+    const input = z
+      .object({
+        packId: z.enum(["starter", "explorer"]),
+        id: z.string().uuid(),
+      })
+      .strict()
+      .parse(req.body);
+    if (!paypal)
+      throw new AppError(
+        503,
+        "PAYPAL_UNAVAILABLE",
+        "PayPal is not configured.",
+      );
+    res.json({
+      purchase: await paypal.create(req.uid, input.packId, input.id),
+    });
+  });
+  app.post("/api/payments/orders/:id/capture", async (req, res) => {
+    const id = z.string().uuid().parse(req.params.id);
+    if (!paypal)
+      throw new AppError(
+        503,
+        "PAYPAL_UNAVAILABLE",
+        "PayPal is not configured.",
+      );
+    res.json({ purchase: await paypal.reconcile(req.uid, id, true) });
+  });
   app.post("/api/taste/discover", async (req, res) => {
     const { query, type } = z
       .object({ query: text, type: entityType.optional() })
@@ -196,8 +255,22 @@ export function createApp({
           "An activity is already being prepared.",
         );
       active.add(req.uid);
+      const reservation = randomUUID();
+      let reserved = false,
+        generated = false;
       try {
-        res.json(await agent.run(req.uid, input, planOnly));
+        if (paypal?.enabled) {
+          await repo.reserveCredit(req.uid, reservation);
+          reserved = true;
+        }
+        const result = await agent.run(req.uid, input, planOnly, reservation);
+        generated = true;
+        if (reserved) await repo.finishCredit(req.uid, reservation, true);
+        res.json(result);
+      } catch (error) {
+        if (reserved && !generated)
+          await repo.finishCredit(req.uid, reservation, false);
+        throw error;
       } finally {
         active.delete(req.uid);
       }

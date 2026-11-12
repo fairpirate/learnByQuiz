@@ -14,16 +14,23 @@ import {
   Route,
 } from "react-router-dom";
 
-import {
-  LoginPage,
-  Question,
-  RegisterPage,
-  NotFound,
-  SingleQuestion,
-  RequireAuth,
-  RequireLogout,
-  Success,
-} from "./pages";
+import LoginPage from "./pages/Login/LoginPage";
+import Question from "./pages/Question/Question";
+import RegisterPage from "./pages/Register/RegisterPage";
+import NotFound from "./pages/NotFound/NotFound";
+import RequireAuth from "./pages/Require/RequireAuth";
+import RequireLogout from "./pages/Require/RequireLogout";
+const SingleQuestion = React.lazy(
+  () => import("./pages/Question/SingleQuestion"),
+);
+const Success = React.lazy(() => import("./pages/Success/Success"));
+function QuizScreen({ children }) {
+  return (
+    <React.Suspense fallback={<p role="status">Loading quiz workspace…</p>}>
+      {children}
+    </React.Suspense>
+  );
+}
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -52,8 +59,22 @@ const router = createBrowserRouter(
           }
         />
         <Route path="question" element={<Question />} />
-        <Route path="question/:id" element={<SingleQuestion />} />
-        <Route path="finish" element={<Success />} />
+        <Route
+          path="question/:id"
+          element={
+            <QuizScreen>
+              <SingleQuestion />
+            </QuizScreen>
+          }
+        />
+        <Route
+          path="finish"
+          element={
+            <QuizScreen>
+              <Success />
+            </QuizScreen>
+          }
+        />
       </Route>
     </Route>,
   ),

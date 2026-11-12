@@ -10,6 +10,7 @@ import { createApp } from "./app.js";
 import { FirestoreRepository } from "./repository.js";
 import { QlooService } from "./services/qloo.js";
 import { LLMProvider } from "./services/llm.js";
+import { PayPalService } from "./services/paypal.js";
 import { LearningAgent } from "./services/agent.js";
 const runtime = runtimeConfiguration();
 if (process.env.NODE_ENV === "production") {
@@ -36,6 +37,7 @@ const repo = new FirestoreRepository(getFirestore()),
 const app = createApp({
   repo,
   qloo,
+  paypal: new PayPalService({ repo }),
   agent: new LearningAgent({ repo, qloo, llm }),
   verifyToken: (token) => getAuth().verifyIdToken(token, true),
   trustProxy: runtime.trustProxy,

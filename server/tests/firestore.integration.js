@@ -42,6 +42,46 @@ test(
       await assert.rejects(repo.startQuiz("other-user", quizId), {
         code: "QUIZ_NOT_FOUND",
       });
+      // Real Firestore transactions arbitrate concurrent payment callbacks and credit usage.
+      const purchaseId = randomUUID();
+      await repo.createPurchase(uid, {
+        id: purchaseId,
+        credits: 10,
+        status: "CREATED",
+        createdAt: new Date().toISOString(),
+      });
+      await repo.attachOrder(
+        uid,
+        purchaseId,
+        "ORDER123",
+        "https://www.sandbox.paypal.com/checkoutnow",
+      );
+      await Promise.all(
+        Array.from({ length: 5 }, () =>
+          repo.settlePurchase(uid, purchaseId, "CAPTURE123"),
+        ),
+      );
+      assert.equal((await repo.wallet(uid)).balance, 13);
+      const reservations = Array.from({ length: 15 }, () => randomUUID());
+      const reserved = await Promise.allSettled(
+        reservations.map((id) => repo.reserveCredit(uid, id)),
+      );
+      assert.equal(reserved.filter((r) => r.status === "fulfilled").length, 13);
+      assert.equal((await repo.wallet(uid)).balance, 0);
+      const released =
+        reservations[reserved.findIndex((r) => r.status === "fulfilled")];
+      await Promise.all([
+        repo.finishCredit(uid, released, false),
+        repo.finishCredit(uid, released, false),
+      ]);
+      assert.equal((await repo.wallet(uid)).balance, 1);
+      await Promise.all([
+        repo.reversePurchase(uid, purchaseId),
+        repo.reversePurchase(uid, purchaseId),
+      ]);
+      assert.equal((await repo.wallet(uid)).balance, -9);
+      await repo.settlePurchase(uid, purchaseId, "CAPTURE123");
+      assert.equal((await repo.wallet(uid)).balance, -9);
       await repo.deleteProfile(uid);
       assert.equal(await repo.get(uid, "profiles", "taste"), null);
     } finally {
