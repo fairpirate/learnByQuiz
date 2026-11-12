@@ -12,7 +12,6 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { createApp } from "../app.js";
 import { FirestoreRepository } from "../repository.js";
-import { QlooService } from "../services/qloo.js";
 import { LLMProvider } from "../services/llm.js";
 import { LearningAgent } from "../services/agent.js";
 import { providerFailure } from "../readiness.js";
@@ -51,8 +50,7 @@ test(
       db = getFirestore(firebase);
     db.settings({ preferRest: true });
     const repo = new FirestoreRepository(db),
-      qloo = new QlooService(),
-      agent = new LearningAgent({ repo, qloo, llm: new LLMProvider() }),
+      agent = new LearningAgent({ repo, llm: new LLMProvider() }),
       actors = [];
     const report = {
       checkedAt: new Date().toISOString(),

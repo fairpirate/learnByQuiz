@@ -12,7 +12,6 @@ import { getFirestore } from "firebase-admin/firestore";
 import { resolve } from "node:path";
 import { createApp } from "../app.js";
 import { FirestoreRepository } from "../repository.js";
-import { QlooService } from "../services/qloo.js";
 import { LLMProvider } from "../services/llm.js";
 import { LearningAgent } from "../services/agent.js";
 import { inspectConfiguration } from "../readiness.js";
@@ -41,12 +40,10 @@ test(
       db = getFirestore(firebase);
     db.settings({ preferRest: true });
     const repo = new FirestoreRepository(db),
-      qloo = new QlooService(),
-      agent = new LearningAgent({ repo, qloo, llm: new LLMProvider() }),
+      agent = new LearningAgent({ repo, llm: new LLMProvider() }),
       actors = [];
     const app = createApp({
       repo,
-      qloo,
       agent,
       verifyToken: (token) => admin.verifyIdToken(token, true),
       staticDir: resolve("dist"),

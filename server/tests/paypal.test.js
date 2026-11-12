@@ -87,13 +87,13 @@ function setup() {
       {
         custom_id: uid,
         invoice_id: id,
-        amount: { value: "5.00", currency_code: "USD" },
+        amount: { value: "1.00", currency_code: "USD" },
         payments: {
           captures: [
             {
               id: "CAPTURE123",
               status: "COMPLETED",
-              amount: { value: "5.00", currency_code: "USD" },
+              amount: { value: "1.00", currency_code: "USD" },
             },
           ],
         },
@@ -174,7 +174,7 @@ test("PayPal fails closed for incomplete or invalid production configuration", (
 test("PayPal creates server-priced orders and reuses persisted checkout without another provider call", async () => {
   const { repo, paypal, calls } = setup();
   const p = await paypal.create(uid, "starter", id);
-  assert.equal(p.amount, "5.00");
+  assert.equal(p.amount, "1.00");
   assert.equal(p.credits, 10);
   assert.match(p.approvalUrl, /^https:\/\/www.sandbox.paypal.com\//);
   const create = calls.find((c) => c.url.endsWith("/v2/checkout/orders"));
@@ -337,13 +337,15 @@ test("AI success consumes a credit; AI failure restores it; zero balance blocks 
 test("webhook is public but requires verified PayPal signatures, with bounded JSON input", async () => {
   const ctx = setup(),
     api = app(ctx);
-  await request(api)
-    .post("/api/payments/webhook")
-    .send(event("PAYMENT.CAPTURE.COMPLETED"))
-    .expect(400);
-  await request(api)
-    .post("/api/payments/webhook")
-    .set(headers)
-    .send(event("UNRELATED.EVENT"))
-    .expect(204);
+  for (const path of ["/api/paypal/webhook", "/api/payments/webhook"]) {
+    await request(api)
+      .post(path)
+      .send(event("PAYMENT.CAPTURE.COMPLETED"))
+      .expect(400);
+    await request(api)
+      .post(path)
+      .set(headers)
+      .send(event("UNRELATED.EVENT"))
+      .expect(204);
+  }
 });
