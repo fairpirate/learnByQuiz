@@ -19,6 +19,8 @@ function LoginForm({ loading }) {
           Email
         </label>
         <input
+          id="email"
+          required
           type="email"
           autoComplete="off"
           name="email"
@@ -35,6 +37,8 @@ function LoginForm({ loading }) {
           </label>
         </div>
         <input
+          id="password"
+          required
           type="password"
           className="bg-neutral-50 ring-[1px] ring-gray-200 rounded-lg p-2 md:p-3 placeholder:text-gray-300 text-xs md:text-sm focus:border-none placeholder:text-xs md:placeholder:text-sm focus:outline-none focus:ring-[1px] focus:ring-green-400/80"
           name="password"
@@ -43,10 +47,11 @@ function LoginForm({ loading }) {
         <br />
         <button
           disabled={loading}
-          className={`flex rounded-full ${!loading
+          className={`flex rounded-full ${
+            !loading
               ? "bg-green-400 hover:bg-neutral-50 hover:text-green-400"
               : "bg-green-400/70 cursor-not-allowed"
-            }  p-1 justify-center font-semibold md:font-bold text-base md:text-lg text-center  mb-3 transition text-white`}
+          }  p-1 justify-center font-semibold md:font-bold text-base md:text-lg text-center  mb-3 transition text-white`}
           type="submit"
         >
           {loading ? (

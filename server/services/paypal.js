@@ -6,14 +6,14 @@ export const creditPacks = Object.freeze([
     id: "starter",
     name: "Learning starter",
     credits: 10,
-    amount: "5.00",
+    amount: "1.00",
     currency: "USD",
   },
   {
     id: "explorer",
     name: "Learning explorer",
     credits: 30,
-    amount: "12.00",
+    amount: "2.00",
     currency: "USD",
   },
 ]);

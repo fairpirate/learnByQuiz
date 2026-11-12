@@ -11,7 +11,6 @@ export function inspectConfiguration(
       ? ["VITE_API_KEY", "VITE_AUTH_DOMAIN", "VITE_PROJECT_ID", "VITE_APP_ID"]
       : []),
     "FIREBASE_PROJECT_ID",
-    "QLOO_API_KEY",
   ];
   const missing = required.filter((key) => !env[key]?.trim());
   const errors = missing.map((key) => `${key} is missing`),

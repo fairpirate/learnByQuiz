@@ -1,9 +1,12 @@
+import { useState } from "react";
+import { userErrorMessage } from "../../../shared/user-errors.js";
 import { Link } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth as firebaseAuth } from "../../config/firebase";
 import useQuestionStore from "../../store/zustand";
 
 function Navbar() {
+  const [error, setError] = useState("");
   const { auth, logoutUser } = useQuestionStore();
 
   return (
@@ -13,6 +16,11 @@ function Navbar() {
         {/* <div className="w-2 h-2 bg-red-500 mt-2 ml-1 rounded-full" /> */}
       </h1>
       <div className="flex flex-wrap items-center gap-3">
+        {error && (
+          <p role="alert" className="text-red-700">
+            {error}
+          </p>
+        )}
         {auth?.email && (
           <>
             <Link to="/">Classic Quiz</Link>
@@ -33,8 +41,13 @@ function Navbar() {
           <button
             className="py-2 transition px-5 text-neutral-50 font-semibold rounded-full bg-red-600"
             onClick={async () => {
-              await signOut(firebaseAuth);
-              logoutUser();
+              setError("");
+              try {
+                await signOut(firebaseAuth);
+                logoutUser();
+              } catch (error) {
+                setError(userErrorMessage(error));
+              }
             }}
           >
             Logout

@@ -17,7 +17,6 @@ async function setup(llm = fakeLLM()) {
     repo,
     agent: new LearningAgent({
       repo,
-      qloo: { getPersonalizedRecommendations: async () => [entity] },
       llm,
     }),
   };
@@ -56,8 +55,8 @@ test("review feedback revises the draft once and only the approved quiz is saved
   assert.ok(
     result.quiz.questions.every((q) => q.question.endsWith("revision 2")),
   );
-  assert.equal(result.execution.steps[4].outcome, "revision_required");
-  assert.equal(result.execution.steps[6].outcome, "approved");
+  assert.equal(result.execution.steps[3].outcome, "revision_required");
+  assert.equal(result.execution.steps[5].outcome, "approved");
 });
 test("agent executes real logical tools, persists plan, quiz and completed trace; redacts answers", async () => {
   const { repo, agent } = await setup();
@@ -67,7 +66,7 @@ test("agent executes real logical tools, persists plan, quiz and completed trace
     targetType: "book",
   });
   assert.equal(r.execution.status, "completed");
-  assert.equal(r.execution.steps.length, 6);
+  assert.equal(r.execution.steps.length, 5);
   assert.ok(r.execution.steps.every((s) => s.status === "completed"));
   assert.equal(r.quiz.questions[0].correctIndex, undefined);
   assert.equal(r.quiz.questions[0].explanation, undefined);
@@ -147,13 +146,18 @@ test("performance controls recommendations and difficulty independently of taste
   assert.equal(empty.accuracy, null);
   assert.deepEqual(recommend(null, empty), []);
 });
-test("no profile fails before Qloo or LLM; no discovery prevents fabricated context", async () => {
+test("no profile fails before LLM; generation proceeds without discovery", async () => {
   const { repo, agent } = await setup();
   await repo.deleteProfile("u");
   await assert.rejects(agent.run("u", {}), { code: "PROFILE_REQUIRED" });
   await repo.put("u", "profiles", "taste", profile);
-  agent.qloo.getPersonalizedRecommendations = async () => [];
-  await assert.rejects(agent.run("u", {}), { code: "NO_DISCOVERIES" });
+  // No Qloo configured; discovery returns empty and generation continues.
+  const result = await agent.run("u", {
+    difficulty: "medium",
+    format: "multiple",
+    targetType: "book",
+  });
+  assert.equal(result.execution.status, "completed");
 });
 test("plan-only mode stops before quiz tools and performance controls generation difficulty", async () => {
   const { repo, agent } = await setup();

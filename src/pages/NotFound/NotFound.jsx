@@ -1,24 +1,29 @@
-import React from "react";
-import { Link } from "react-router-dom";
-
-const NotFound = () => {
+import { Link, isRouteErrorResponse, useRouteError } from "react-router-dom";
+export default function NotFound() {
+  const error = useRouteError();
+  const notFound =
+    !error || (isRouteErrorResponse(error) && error.status === 404);
   return (
-    <div className="h-screen w-full flex flex-col md:flex-row items-center justify-center">
-      <h1 className="text-[8rem] font-bold text-primary animate-bounce text-green-400">404</h1>
-      <div className="w-24 h-1 md:w-1 md:h-24 bg-primary my-6 md:my-0 md:mx-8"></div>
-      <div className="flex flex-col items-center">
-        <h2 className="text-2xl text-center mb-4">
-          Sorry, This page isn't available
-        </h2>
-        <Link to="/">
-          <button className="bg-green-400 rounded-full p-2 hover:bg-neutral-50 hover:text-green-400">
-            <span className="text-xl"> Go To Home Page</span>
-
-          </button>
-        </Link>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-6 text-center">
+      <h1 className="text-2xl font-bold text-slate-800">
+        {notFound ? "We couldn't find this page" : "We couldn't open this page"}
+      </h1>
+      <p className="text-slate-600">
+        {notFound
+          ? "The link may have changed. Go back to the home page to continue."
+          : "Something went wrong while loading. Please try again."}
+      </p>
+      {!notFound && (
+        <button
+          className="rounded-full bg-green-700 px-5 py-2 text-white"
+          onClick={() => window.location.reload()}
+        >
+          Try again
+        </button>
+      )}
+      <Link to="/" className="text-green-700 underline">
+        Go to home page
+      </Link>
     </div>
   );
-};
-
-export default NotFound;
+}

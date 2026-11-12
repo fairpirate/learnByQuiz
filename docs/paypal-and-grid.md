@@ -17,17 +17,19 @@ The existing AI planner, generator and independent answer reviewer remain the le
    ```
 
    `APP_ORIGIN` is the exact origin without a path or trailing slash. Sandbox localhost testing permits `http://localhost:5173` or `http://127.0.0.1:5173`. PayPal webhooks still need a publicly reachable HTTPS server/tunnel. A hosted app must use its public HTTPS origin. Browser builds need no PayPal credentials. Compose forwards these six runtime settings.
-3. Register `https://your-public-app-origin.example/api/payments/webhook` on that **same PayPal app and environment**. Subscribe to `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.REFUNDED`, and `PAYMENT.CAPTURE.REVERSED`. Copy the webhook ID into configuration. Forward the signature headers unchanged at your proxy. Monitor PayPal webhook delivery failures and resend failed events after an outage.
+3. For the configured deployment domain, register `https://learnbyquiz.spiritedrobot.in/api/paypal/webhook` after deploying the updated API on that **same PayPal app and environment**. Subscribe to `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.REFUNDED`, and `PAYMENT.CAPTURE.REVERSED`. Copy the webhook ID into configuration. Forward the signature headers unchanged at your proxy. Monitor PayPal webhook delivery failures and resend failed events after an outage.
 4. Restart the API. Open **AI Learning Journey → Learning credits & payments**. Buy a pack with a sandbox personal buyer, approve payment on PayPal, and return to the app. The return automatically requests server capture. If navigation was interrupted, use **Check payment** or **Resume checkout** in history.
 5. Confirm credits were granted once. Refresh and check the payment again; the balance must stay unchanged. Generate a quiz to consume one credit, complete it in the grid and view explanations/analytics.
 6. Refund a sandbox capture from the merchant dashboard. Confirm webhook delivery and that the pack becomes `REVERSED`. Replayed events must not change the balance again. Refund resources without an order ID are resolved through their capture reference using a fixed PayPal API endpoint.
 
 `PAYPAL_ENABLED=false` preserves the existing free AI workflow and disables checkout. When enabled, missing credentials, webhook ID or origin stop API startup. Invalid environments/origins are rejected. Set `PAYPAL_ENVIRONMENT=live` only with live credentials, live webhook registration and an HTTPS origin after sandbox verification. Credentials stay on the server; the browser redirects to PayPal-hosted approval, so this integration does not load the PayPal JavaScript SDK.
 
+The generic endpoint is `https://api.yourdomain.com/api/paypal/webhook` when your API uses a separate subdomain. Replace the host with your actual public API host. The previous `/api/payments/webhook` path remains a compatible alias.
+
 ## Product and accounting policy
 
 - Each account receives 3 initial complimentary credits when billing is enabled. A separate plan costs 1 credit. A quiz with its learning plan and answer review costs 1 credit. Revisiting/reviewing a quiz and classic trivia are free.
-- Starter: 10 credits for USD 5.00. Explorer: 30 credits for USD 12.00. Prices, currency and grants come exclusively from the server catalog in `server/services/paypal.js`; the browser cannot set them. These initial catalog prices are editable product choices.
+- Starter: 10 credits for USD 1.00. Explorer: 30 credits for USD 2.00. Prices, currency and grants come exclusively from the server catalog in `server/services/paypal.js`; the browser cannot set them. These initial catalog prices are editable product choices.
 - Packs are one-time purchases, with no automatic renewal. Refunds are handled by the merchant through PayPal; the app does not expose a customer refund API. Provide your actual support contact and refund policy before taking live payments.
 - Any partial/full refund or reversal revokes the whole pack. If credits were spent, the balance can become negative; further generation is blocked until the balance is positive. This conservative policy is intentional and must be reflected in your customer terms.
 - A failed AI request releases its reserved credit. Successful content is accessible through the saved library even if the final HTTP response is lost. Network/client timeouts do not roll back a completed activity.
@@ -62,11 +64,11 @@ All except the webhook require `Authorization: Bearer <Firebase ID token>`.
 | `GET /api/payments/account` | Enabled/environment, server catalog, own balance, latest 50 own purchases |
 | `POST /api/payments/orders` | Strict `{id: UUID, packId: "starter" or "explorer"}`; creates/reuses checkout |
 | `POST /api/payments/orders/:id/capture` | Verify/capture/reconcile an own purchase; repeatable without duplicate grants |
-| `POST /api/payments/webhook` | Public transport; PayPal signature required; bounded JSON body |
+| `POST /api/paypal/webhook` | Public transport; PayPal signature required; bounded JSON body |
 
 ## Grid coverage
 
-AG Grid renders interests, subjects, Qloo search and selected favorites, related discoveries, execution steps, AI quiz questions and answer review, subject/difficulty performance, progress, recommendations, plans, the saved quiz library, learning packs, payment history, classic quiz options and classic final answer review.
+AG Grid renders interests, subjects, selected favorites, related discoveries, execution steps, AI quiz questions and answer review, subject/difficulty performance, progress, recommendations, plans, the saved quiz library, learning packs, payment history, classic quiz options and classic final answer review.
 
 Listings support sorting, column filtering/resizing, quick search, and pagination above 10 rows. CSV export follows filters and prefixes spreadsheet formula triggers. Interactive quiz/preference grids omit export/search controls where those would interfere with completing the task. Native labeled inputs inside custom cells keep answer selection familiar. Answer state is stored outside grid sorting; stable row keys and unchanged row objects preserve it across refreshes. Mobile layouts scroll inside each grid. Navigation, authentication and quiz configuration remain normal form controls.
 

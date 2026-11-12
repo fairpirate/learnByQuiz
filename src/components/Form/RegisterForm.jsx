@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, Form } from "react-router-dom";
 import spinner from "../../assets/spinner.svg";
 
 function RegisterForm({ isSubmitting: loading }) {
+  const [agreed, setAgreed] = useState(false);
+
   return (
     <>
       <Form
@@ -23,6 +25,7 @@ function RegisterForm({ isSubmitting: loading }) {
           type="text"
           required
           autoComplete="off"
+          id="name"
           name="name"
           placeholder="Enter your name"
           className="bg-neutral-50 ring-[1px] ring-gray-200 rounded-lg p-2 md:p-3 placeholder:text-gray-300 text-xs md:text-sm focus:border-none placeholder:text-xs md:placeholder:text-sm focus:outline-none focus:ring-[1px] focus:ring-green-400/80 mb-5"
@@ -37,6 +40,7 @@ function RegisterForm({ isSubmitting: loading }) {
           type="email"
           required
           autoComplete="off"
+          id="email"
           name="email"
           placeholder="Enter your email"
           className="bg-neutral-50 ring-[1px] ring-gray-200 rounded-lg p-2 md:p-3 placeholder:text-gray-300 text-xs md:text-sm focus:border-none placeholder:text-xs md:placeholder:text-sm focus:outline-none focus:ring-[1px] focus:ring-green-400/80 "
@@ -52,6 +56,7 @@ function RegisterForm({ isSubmitting: loading }) {
           type="password"
           required
           className="bg-neutral-50 ring-[1px] ring-gray-200 rounded-lg p-2 md:p-3 placeholder:text-gray-300 text-xs md:text-sm focus:border-none placeholder:text-xs md:placeholder:text-sm focus:outline-none focus:ring-[1px] focus:ring-green-400/80 mb-5"
+          id="password"
           name="password"
           placeholder="Enter your password"
         />
@@ -65,16 +70,48 @@ function RegisterForm({ isSubmitting: loading }) {
           type="password"
           required
           className="bg-neutral-50 ring-[1px] ring-gray-200 rounded-lg p-2 md:p-3 placeholder:text-gray-300 text-xs md:text-sm focus:border-none placeholder:text-xs md:placeholder:text-sm focus:outline-none focus:ring-[1px] focus:ring-green-400/80 "
+          id="confirmPw"
           name="confirmPw"
           placeholder="Enter your password"
         />
-        <br />
+        <div className="flex items-start mb-5">
+          <input
+            type="checkbox"
+            required
+            name="terms"
+            id="terms"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-1 h-4 w-4 text-green-400 focus:ring-green-400 border-gray-300 rounded"
+          />
+          <label
+            htmlFor="terms"
+            className="ml-2 text-xs md:text-sm text-neutral-600 leading-relaxed"
+          >
+            By signing up, you agree to the{" "}
+            <Link
+              to="/privacy-policy"
+              className="text-green-400 underline underline-offset-4 hover:text-green-500"
+            >
+              Privacy Policy
+            </Link>{" "}
+            and{" "}
+            <Link
+              to="/terms-conditions"
+              className="text-green-400 underline underline-offset-4 hover:text-green-500"
+            >
+              Terms & Conditions
+            </Link>
+            .
+          </label>
+        </div>
         <button
-          disabled={loading}
-          className={`flex rounded-full ${!loading
-            ? "bg-green-400 hover:bg-neutral-50 hover:text-green-400"
-            : "bg-green-400/70 cursor-not-allowed"
-            }  p-1 justify-center font-semibold md:font-bold text-base md:text-lg text-center mt-5 mb-3 transition text-white`}
+          disabled={loading || !agreed}
+          className={`flex rounded-full ${
+            !loading
+              ? "bg-green-400 hover:bg-neutral-50 hover:text-green-400"
+              : "bg-green-400/70 cursor-not-allowed"
+          }  p-1 justify-center font-semibold md:font-bold text-base md:text-lg text-center mt-5 mb-3 transition text-white`}
           type="submit"
         >
           {loading ? (

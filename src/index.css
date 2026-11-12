@@ -55,7 +55,7 @@ body {
 }
 .journey-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 24px;
   margin: 24px 0;
   align-items: start;
@@ -71,7 +71,7 @@ body {
   display: grid;
   gap: 24px;
 }
-.journey button {
+.journey button:not([class*="ag-"]) {
   background: #216b4e;
   color: #fff;
   font-size: 13px;
@@ -80,18 +80,18 @@ body {
   padding: 10px 14px;
   cursor: pointer;
 }
-.journey button:hover {
+.journey button:not([class*="ag-"]):hover {
   background: #185039;
 }
-.journey button.secondary {
+.journey button:not([class*="ag-"]).secondary {
   background: #eff5f1;
   color: #22513c;
 }
-.journey button:disabled {
+.journey button:not([class*="ag-"]):disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.journey input:not([type="checkbox"]):not([type="radio"]),
+.journey input:not([type="checkbox"]):not([type="radio"]):not([class*="ag-"]),
 .journey select {
   width: 100%;
   padding: 10px;
@@ -141,10 +141,12 @@ body {
 .journey-search {
   display: flex;
   gap: 8px;
-  align-items: start;
+  align-items: center;
 }
 .journey-search button {
-  margin-top: 6px;
+  flex-shrink: 0;
+  align-self: stretch;
+  margin: 6px 0 12px;
 }
 .journey-results {
   list-style: none;
@@ -207,7 +209,7 @@ body {
 }
 .journey-discoveries {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
   margin-top: 18px;
 }
@@ -296,15 +298,222 @@ body {
 }
 
 /* AG Grid workspaces keep horizontal scrolling within the grid on small screens. */
-.journey-grid > *, .journey-stack, .journey-card { min-width: 0; }
-.learning-grid { width: 100%; min-width: 0; margin: 14px 0; }
-.learning-grid-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.learning-grid-toolbar label { flex: 1; max-width: 340px; font-size: 12px; }
-.learning-grid-toolbar input { width: 100%; }
-.grid-answers { display: grid; gap: 8px; padding: 4px 0; }
-.grid-answers label { display: flex; align-items: baseline; gap: 8px; white-space: normal; cursor: pointer; }
-.grid-answers input { flex-shrink: 0; }
-.learning-grid .ag-cell { overflow-wrap: anywhere; }
-.learning-grid .ag-cell button { font-size: 12px; padding: 7px 10px; }
-.learning-grid .ag-cell a { color: #216b4e; text-decoration: underline; }
-.payments-panel { margin: 24px 0; }
+.journey-grid > *,
+.journey-stack,
+.journey-card {
+  min-width: 0;
+}
+.learning-grid {
+  width: 100%;
+  min-width: 0;
+  margin: 14px 0;
+}
+.learning-grid-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.learning-grid-toolbar label {
+  flex: 1;
+  max-width: 340px;
+  font-size: 12px;
+}
+.learning-grid-toolbar input {
+  width: 100%;
+}
+.grid-answers {
+  display: grid;
+  gap: 8px;
+  padding: 4px 0;
+}
+.grid-answers label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: normal;
+  cursor: pointer;
+}
+.grid-answers input {
+  flex-shrink: 0;
+}
+.learning-grid .ag-cell {
+  overflow-wrap: anywhere;
+}
+.learning-grid .ag-cell button {
+  font-size: 12px;
+  padding: 7px 10px;
+}
+.learning-grid .ag-cell a {
+  color: #216b4e;
+  text-decoration: underline;
+}
+.payments-panel {
+  margin: 24px 0;
+}
+
+/* Align the profile choices and workspace cards on a shared page rhythm. */
+.journey-profile {
+  margin-top: 16px;
+}
+.journey-profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-areas: "interests favorites subjects";
+  gap: 24px;
+  align-items: start;
+}
+.journey-profile-layout > fieldset:first-child {
+  grid-area: interests;
+}
+.journey-profile-layout > fieldset:last-child {
+  grid-area: subjects;
+}
+.journey-profile-layout > fieldset {
+  margin: 0;
+  min-width: 0;
+}
+.journey-profile-layout legend {
+  padding-bottom: 8px;
+}
+.journey-favorites {
+  grid-area: favorites;
+  min-width: 0;
+}
+.journey-favorites form > label {
+  display: block;
+}
+.journey-profile > .journey-actions {
+  border-top: 1px solid #e5ece7;
+  padding-top: 18px;
+}
+.journey-tools {
+  align-items: stretch;
+}
+.journey-controls {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.journey-controls label {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.journey-tools .journey-controls {
+  grid-template-columns: 1fr;
+}
+.journey-stats > div {
+  background: #f4f8f5;
+  border-radius: 10px;
+  padding: 14px;
+}
+.journey .learning-grid-toolbar {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.journey .learning-grid-toolbar label {
+  min-width: 140px;
+}
+.journey .learning-grid-toolbar label input {
+  margin-bottom: 0;
+}
+.journey .learning-grid-toolbar > button {
+  flex-shrink: 0;
+}
+
+/* Native modal dialogs keep focus and pointer interaction inside the quiz. */
+.journey-quiz-dialog {
+  width: min(1200px, calc(100% - 40px));
+  max-width: 1200px;
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid #dce5e0;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 90px #102c2740;
+  overflow: hidden;
+  font-family: Inter, system-ui, sans-serif;
+}
+.journey-quiz-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.journey-quiz-dialog::backdrop {
+  background: #102c27a6;
+  backdrop-filter: blur(3px);
+}
+.journey-quiz-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 22px 28px;
+  border-bottom: 1px solid #dce5e0;
+  background: #f4f8f5;
+  flex-shrink: 0;
+}
+.journey-quiz-header > div {
+  min-width: 0;
+}
+.journey-quiz-header h2 {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.journey-quiz-header .eyebrow,
+.journey-quiz-header p {
+  margin: 0;
+}
+.journey-quiz-close {
+  flex-shrink: 0;
+}
+.journey-quiz-content {
+  padding: 20px 28px 28px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+.journey-quiz-content > form > button,
+.journey-quiz-content > div > button {
+  margin-top: 12px;
+}
+@media (min-width: 761px) and (max-width: 1149px) {
+  .journey-profile-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "interests favorites" "subjects favorites";
+  }
+}
+@media (max-width: 760px) {
+  .journey-profile-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "interests" "favorites" "subjects";
+  }
+  .journey-hero {
+    gap: 16px;
+  }
+  .journey-stats {
+    gap: 8px;
+  }
+  .journey-stats > div {
+    padding: 10px;
+  }
+  .journey-stats strong {
+    font-size: 22px;
+  }
+  .journey-quiz-dialog {
+    width: calc(100% - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 12px;
+  }
+  .journey-quiz-header {
+    padding: 16px;
+    gap: 12px;
+  }
+  .journey-quiz-header h2 {
+    font-size: 19px;
+  }
+  .journey-quiz-content {
+    padding: 12px 16px 20px;
+  }
+}

@@ -220,7 +220,9 @@ test("taste profile, generated quiz, review and adaptive dashboard work", async 
     await checkbox.click();
     await expect(checkbox).toBeChecked();
   }
-  await page.getByLabel("Find a favorite in Qloo").fill("Interstellar");
+  await page
+    .getByLabel("Find a favorite", { exact: true })
+    .fill("Interstellar");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByRole("button", { name: "Save preferences" }).click();
@@ -234,6 +236,16 @@ test("taste profile, generated quiz, review and adaptive dashboard work", async 
     .click();
   await expect(page.getByRole("button", { name: "Start quiz" })).toBeVisible();
   await page.getByRole("button", { name: "Start quiz" }).click();
+  const dialog = page.getByRole("dialog", { name: "Explore astronomy" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveJSProperty("open", true);
+  await dialog.locator('input[name="q0"]').first().click();
+  await expect(dialog.locator('input[name="q0"]').first()).toBeChecked();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Start quiz" })).toBeFocused();
+  await page.getByRole("button", { name: "Start quiz" }).click();
+  await expect(dialog.locator('input[name="q0"]').first()).toBeChecked();
   for (let i = 0; i < 5; i++) {
     const answer = page.locator(`input[name=q${i}]`).first();
     await answer.click();
@@ -251,6 +263,25 @@ test("taste profile, generated quiz, review and adaptive dashboard work", async 
       .getByRole("region", { name: "Quiz answer review" })
       .getByText("Educational explanation.", { exact: true }),
   ).toHaveCount(5);
+  await page.getByRole("button", { name: "Close quiz review" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Review", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("region", { name: "Quiz answer review" }),
+  ).toBeVisible();
+  await expect(dialog.getByRole("radio")).toHaveCount(0);
+  await page.screenshot({
+    path: `test-results/quiz-popup-${test.info().project.name}.png`,
+  });
+  await dialog.getByRole("button", { name: "Close quiz", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Review", exact: true }),
+  ).toBeFocused();
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe(
+    "hidden",
+  );
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -288,6 +319,99 @@ test("classic quizzes remain available and score against the real question count
   ).toBeVisible();
   await page.getByRole("button", { name: "Back to dashboard" }).click();
   await expect(page.getByRole("button", { name: "Begin Test" })).toBeVisible();
+});
+
+test("classic Start restarts completed and partial attempts, including persisted state", async ({
+  page,
+}) => {
+  let requests = 0;
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.route("https://opentdb.com/api.php**", (route) => {
+    requests++;
+    return route.fulfill({
+      json: {
+        response_code: 0,
+        results: Array.from({ length: 3 }, (_, i) => ({
+          category: "Science",
+          difficulty: "easy",
+          question: `Attempt ${requests}, question ${i + 1}?`,
+          correct_answer: "Correct",
+          incorrect_answers: ["Wrong A", "Wrong B", "Wrong C"],
+        })),
+      },
+    });
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Begin Test" }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  for (let i = 0; i < 3; i++)
+    await page
+      .getByRole("button", { name: "Choose Correct", exact: true })
+      .click();
+  await expect(
+    page.getByRole("heading", { name: "100", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Classic Quiz", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Start", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(page).toHaveURL(/\/question\/1$/);
+  await expect(
+    page.getByRole("heading", {
+      name: "1. Attempt 1, question 1?",
+      exact: true,
+    }),
+  ).toBeVisible();
+  const initial = await page.evaluate(
+    () => JSON.parse(localStorage.getItem("question-storage")).state,
+  );
+  expect(initial.page).toBe(1);
+  expect(initial.userAnswer).toEqual([]);
+  expect(initial.trueAnswer).toBe(0);
+  expect(initial.falseAnswer).toBe(0);
+  expect(initial.totalTime).toBeGreaterThan(Date.now());
+  await page
+    .getByRole("button", { name: "Choose Wrong A", exact: true })
+    .click();
+  await page.getByRole("link", { name: "Classic Quiz", exact: true }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "1. Attempt 1, question 1?",
+      exact: true,
+    }),
+  ).toBeVisible();
+  for (let i = 0; i < 3; i++)
+    await page
+      .getByRole("button", { name: "Choose Correct", exact: true })
+      .click();
+  await expect(
+    page.getByRole("heading", { name: "100", exact: true }),
+  ).toBeVisible();
+  expect(requests).toBe(1);
+  await page.getByRole("button", { name: "Back to dashboard" }).click();
+  await page.getByRole("button", { name: "Begin Test" }).click();
+  await page
+    .getByRole("button", { name: "Start", exact: true })
+    .click({ timeout: 12000 });
+  await expect(
+    page.getByRole("heading", {
+      name: "1. Attempt 2, question 1?",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(requests).toBe(2);
+  for (let i = 0; i < 3; i++)
+    await page
+      .getByRole("button", { name: "Choose Correct", exact: true })
+      .click();
+  await expect(
+    page.getByRole("heading", { name: "100", exact: true }),
+  ).toBeVisible();
+  expect(errors).toEqual([]);
 });
 
 const classicQuestions = [
@@ -401,7 +525,7 @@ test("PayPal pack checkout, return capture, payment recovery and filtering work"
     id: "starter",
     name: "Learning starter",
     credits: 10,
-    amount: "5.00",
+    amount: "1.00",
     currency: "USD",
   };
   await page.route("http://127.0.0.1:4173/api/payments/**", async (route) => {
@@ -481,4 +605,142 @@ test("PayPal pack checkout, return capture, payment recovery and filtering work"
     page.getByText("13 credits available", { exact: false }),
   ).toBeVisible();
   expect(captureCalls).toBe(2);
+});
+
+test("account errors explain how to recover without showing Firebase diagnostics", async ({
+  page,
+}) => {
+  await page.route("https://identitytoolkit.googleapis.com/**", (route) =>
+    route.fulfill({
+      status: 400,
+      json: {
+        error: {
+          code: 400,
+          message: route.request().url().includes("accounts:signUp")
+            ? "EMAIL_EXISTS"
+            : "INVALID_LOGIN_CREDENTIALS",
+        },
+      },
+    }),
+  );
+  await page.goto("/login");
+  await page.getByLabel("Email", { exact: true }).fill("learner@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("wrong-password");
+  await page.getByRole("button", { name: "Sign In", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Check your email address and password",
+  );
+  await expect(page.getByRole("alert")).not.toContainText(
+    /Firebase|auth\/|INVALID_LOGIN_CREDENTIALS/,
+  );
+  await page.getByRole("link", { name: "Sign Up", exact: true }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Learner");
+  await page.getByLabel("Email", { exact: true }).fill("learner@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("safe-password");
+  await page
+    .getByLabel("Confirm Password", { exact: true })
+    .fill("different-password");
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Sign Up", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Your passwords don't match",
+  );
+  await page
+    .getByLabel("Confirm Password", { exact: true })
+    .fill("safe-password");
+  await page.getByRole("button", { name: "Sign Up", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "An account already uses this email address",
+  );
+  await expect(page.getByRole("alert")).not.toContainText(
+    /Firebase|auth\/|EMAIL_EXISTS/,
+  );
+});
+
+test("Journey translates API, connection and saved activity errors into helpful messages", async ({
+  page,
+}) => {
+  await mockLearning(page);
+  let failure = "configured";
+  await page.route(
+    "http://127.0.0.1:4173/api/learning/dashboard",
+    async (route) => {
+      if (failure === "network") return route.abort("failed");
+      if (failure === "html")
+        return route.fulfill({
+          status: 502,
+          contentType: "text/html",
+          body: "Nginx upstream stack trace at server.js",
+        });
+      if (failure === "trace")
+        return route.fulfill({
+          json: {
+            profile: null,
+            analytics: {
+              attempts: 0,
+              accuracy: null,
+              subjects: {},
+              difficulties: {},
+              weakSubjects: [],
+              progress: [],
+            },
+            recommendations: [],
+            quizzes: [],
+            plans: [],
+            executions: [
+              {
+                status: "failed",
+                error: "Configure NVIDIA_API_KEY. Firebase permission denied",
+                errorCode: "LLM_NOT_CONFIGURED",
+                steps: [
+                  {
+                    name: "Create quiz",
+                    status: "failed",
+                    error: "Raw schema validation at private.js",
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      return route.fulfill({
+        status: 503,
+        json: {
+          error: {
+            code: "LLM_NOT_CONFIGURED",
+            message: "Configure NVIDIA_API_KEY. Firebase permission denied",
+            requestId: "test-request",
+          },
+        },
+      });
+    },
+  );
+  await signIn(page);
+  await page
+    .getByRole("link", { name: "AI Learning Journey", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "AI learning isn't available yet",
+  );
+  failure = "network";
+  await page.getByRole("button", { name: "Retry dashboard" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Check your internet connection",
+  );
+  failure = "html";
+  await page.getByRole("button", { name: "Retry dashboard" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "temporarily unavailable",
+  );
+  failure = "trace";
+  await page.getByRole("button", { name: "Retry dashboard" }).click();
+  await expect(
+    page.getByRole("region", { name: "Agent execution steps" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("AI learning isn't available yet.", { exact: false }),
+  ).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(
+    /NVIDIA_API_KEY|schema validation|permission denied|private\.js|server\.js|Firebase/,
+  );
 });

@@ -1,3 +1,4 @@
+import { userErrorMessage } from "../../../shared/user-errors.js";
 import LoginForm from "../../components/Form/LoginForm";
 import { handleLogin } from "../../api/firebase";
 import { useNavigate, useActionData, useNavigation } from "react-router-dom";
@@ -21,9 +22,8 @@ function LoginPage() {
   return (
     <AnimateProvider>
       {data?.type === "ERROR" && (
-        <p className="text-rose-700 text-xs font-bold mb-3">
-          {" "}
-          Error : {data.message}
+        <p role="alert" className="text-rose-700 text-xs font-bold mb-3">
+          {data.message}
         </p>
       )}
       <LoginForm loading={navigation.state === "submitting"} />
@@ -33,9 +33,14 @@ function LoginPage() {
 
 export async function action({ request }) {
   const formData = await request.formData();
-  const email = formData.get("email").trim();
+  const email = String(formData.get("email") || "").trim();
   const password = formData.get("password");
 
+  if (!email || !password)
+    return {
+      type: "ERROR",
+      message: userErrorMessage({ code: "AUTH_FIELDS_REQUIRED" }),
+    };
   try {
     const user = await handleLogin(email, password);
 
@@ -47,7 +52,7 @@ export async function action({ request }) {
   } catch (error) {
     return {
       type: "ERROR",
-      message: error.message,
+      message: userErrorMessage(error),
     };
   }
 }

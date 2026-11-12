@@ -1,3 +1,4 @@
+import { userErrorMessage } from "../shared/user-errors.js";
 import express from "express";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
@@ -16,7 +17,6 @@ import { creditPacks } from "./services/paypal.js";
 import { publicQuiz } from "./services/agent.js";
 export function createApp({
   repo,
-  qloo,
   agent,
   paypal,
   verifyToken,
@@ -28,7 +28,7 @@ export function createApp({
     res.status(429).json({
       error: {
         code: "RATE_LIMITED",
-        message: "Too many requests. Please try again later.",
+        message: userErrorMessage({ code: "RATE_LIMITED" }),
         requestId: req.requestId,
       },
     });
@@ -79,7 +79,7 @@ export function createApp({
     }),
   );
   app.post(
-    "/api/payments/webhook",
+    ["/api/paypal/webhook", "/api/payments/webhook"],
     express.json({ limit: "128kb" }),
     async (req, res) => {
       if (!paypal)
@@ -175,8 +175,8 @@ export function createApp({
       .strict()
       .parse(req.body);
     res.json({
-      entities: await qloo.searchEntities(query, type),
-      source: "qloo",
+      entities: agent.qloo ? await agent.qloo.searchEntities(query, type) : [],
+      source: agent.qloo ? "qloo" : "none",
     });
   });
   app.get("/api/taste/profile", async (req, res) =>
@@ -187,23 +187,26 @@ export function createApp({
     const selected = [
       ...new Map(input.entities.map((e) => [e.entity_id, e])).values(),
     ];
-    // Resolve selected IDs against Qloo again; never persist client-invented cultural metadata.
-    const entities = await Promise.all(
-      selected.map(async (e) => {
-        const type = entityType.parse(e.subtype.replace("urn:entity:", ""));
-        const matches = await qloo.searchEntities(e.name, type);
-        const canonical = matches.find(
-          (x) => x.entity_id.toLowerCase() === e.entity_id.toLowerCase(),
-        );
-        if (!canonical)
-          throw new AppError(
-            400,
-            "INVALID_ENTITY",
-            "Select an entity returned by Qloo search.",
+    // Resolve selected IDs against Qloo when available; otherwise persist as-is.
+    let entities = selected;
+    if (agent.qloo) {
+      entities = await Promise.all(
+        selected.map(async (e) => {
+          const type = entityType.parse(e.subtype.replace("urn:entity:", ""));
+          const matches = await agent.qloo.searchEntities(e.name, type);
+          const canonical = matches.find(
+            (x) => x.entity_id.toLowerCase() === e.entity_id.toLowerCase(),
           );
-        return canonical;
-      }),
-    );
+          if (!canonical)
+            throw new AppError(
+              400,
+              "INVALID_ENTITY",
+              "Select an entity returned by Qloo search.",
+            );
+          return canonical;
+        }),
+      );
+    }
     const profile = {
       ...input,
       entities,
@@ -229,8 +232,10 @@ export function createApp({
         "Save your taste profile first.",
       );
     res.json({
-      entities: await qloo.getPersonalizedRecommendations(profile, type),
-      source: "qloo",
+      entities: agent.qloo
+        ? await agent.qloo.getPersonalizedRecommendations(profile, type)
+        : [],
+      source: agent.qloo ? "qloo" : "none",
     });
   });
   const expensive = rateLimit({
@@ -376,41 +381,35 @@ export function createApp({
     });
   }
   app.use((err, req, res, _next) => {
-    if ([4, 5, 7, 14].includes(err.code))
-      return res.status(503).json({
-        error: {
-          code: "LEARNING_STORAGE_UNAVAILABLE",
-          message:
-            "Learning storage is currently unavailable. The administrator must check the database and its permissions.",
-          requestId: req.requestId,
-        },
-      });
-    const validation = err instanceof ZodError;
-    if (err.type === "entity.parse.failed")
-      return res.status(400).json({
-        error: {
-          code: "MALFORMED_JSON",
-          message: "The request body must contain valid JSON.",
-          requestId: req.requestId,
-        },
-      });
-    if (err.type === "entity.too.large")
-      return res.status(413).json({
-        error: {
-          code: "PAYLOAD_TOO_LARGE",
-          message: "The request body exceeds the allowed size.",
-          requestId: req.requestId,
-        },
-      });
-    const status = validation ? 400 : err.status || 500;
+    const storage = [4, 5, 7, 14].includes(err.code);
+    const code = storage
+      ? "LEARNING_STORAGE_UNAVAILABLE"
+      : err instanceof ZodError
+        ? "INVALID_INPUT"
+        : err.type === "entity.parse.failed"
+          ? "MALFORMED_JSON"
+          : err.type === "entity.too.large"
+            ? "PAYLOAD_TOO_LARGE"
+            : err.code || "INTERNAL_ERROR";
+    const status = storage
+      ? 503
+      : err instanceof ZodError || err.type === "entity.parse.failed"
+        ? 400
+        : err.type === "entity.too.large"
+          ? 413
+          : err.status || 500;
+    logger(
+      JSON.stringify({
+        requestId: req.requestId,
+        level: "error",
+        code,
+        status,
+      }),
+    );
     res.status(status).json({
       error: {
-        code: validation ? "INVALID_INPUT" : err.code || "INTERNAL_ERROR",
-        message: validation
-          ? "Check the supplied fields and try again."
-          : status >= 500 && !(err instanceof AppError)
-            ? "The request could not be completed."
-            : err.message,
+        code,
+        message: userErrorMessage({ code, status }),
         requestId: req.requestId,
       },
     });

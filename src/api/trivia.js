@@ -1,3 +1,4 @@
+import { UserFacingError } from "../../shared/user-errors.js";
 const COOLDOWN_MS = 5200;
 
 export function createTriviaClient({
@@ -30,10 +31,10 @@ export function createTriviaClient({
             signal: AbortSignal.timeout(15000),
           });
         } catch (error) {
-          throw new Error(
+          throw new UserFacingError(
             error.name === "TimeoutError" || error.name === "AbortError"
-              ? "Trivia request timed out. Please retry."
-              : "Could not reach trivia. Check your connection and retry.",
+              ? "REQUEST_TIMEOUT"
+              : "NETWORK_ERROR",
           );
         }
         let data;
@@ -41,9 +42,7 @@ export function createTriviaClient({
           try {
             data = await response.json();
           } catch {
-            throw new Error(
-              "Trivia returned an invalid response. Please retry.",
-            );
+            throw new UserFacingError("TRIVIA_INVALID_RESPONSE");
           }
         }
         if (response.status === 429 || data?.response_code === 5) {
@@ -57,22 +56,13 @@ export function createTriviaClient({
           );
           nextRequestAt = now() + retryDelay;
           if (attempt === 0) continue;
-          throw new Error(
-            "Trivia is busy. Wait a few seconds before retrying.",
-          );
+          throw new UserFacingError("TRIVIA_BUSY");
         }
-        if (!response.ok)
-          throw new Error(
-            "The trivia provider is temporarily unavailable. Please retry shortly.",
-          );
+        if (!response.ok) throw new UserFacingError("TRIVIA_UNAVAILABLE");
         if (data?.response_code === 1)
-          throw new Error(
-            "Not enough questions match these settings. Choose another category or difficulty.",
-          );
+          throw new UserFacingError("TRIVIA_NO_QUESTIONS");
         if (data?.response_code === 2)
-          throw new Error(
-            "These quiz settings are invalid. Choose your quiz settings again.",
-          );
+          throw new UserFacingError("TRIVIA_SETTINGS");
         const valid =
           data?.response_code === 0 &&
           Array.isArray(data.results) &&
@@ -94,8 +84,7 @@ export function createTriviaClient({
                 (answer) => typeof answer === "string",
               ),
           );
-        if (!valid)
-          throw new Error("Trivia returned an invalid response. Please retry.");
+        if (!valid) throw new UserFacingError("TRIVIA_INVALID_RESPONSE");
         return data.results;
       }
     });

@@ -1,3 +1,4 @@
+import { userErrorMessage } from "../../shared/user-errors.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { AppError } from "../errors.js";
@@ -115,8 +116,8 @@ export class LearningAgent {
       } catch (e) {
         s.status = "failed";
         s.durationMs = Date.now() - Date.parse(s.startedAt);
-        s.error =
-          e instanceof AppError ? e.message : "The step could not complete.";
+        s.errorCode = e.code || "INTERNAL_ERROR";
+        s.error = userErrorMessage(e);
         throw e;
       }
     };
@@ -131,22 +132,19 @@ export class LearningAgent {
           );
         return p;
       });
-      const discoveries = await step(
-        "Discover related culture with Qloo",
-        async () => {
-          const entities = await this.qloo.getPersonalizedRecommendations(
-            profile,
-            input.targetType,
-          );
-          if (!entities.length)
-            throw new AppError(
-              422,
-              "NO_DISCOVERIES",
-              "Qloo found no related entities. Try another discovery category.",
+      let discoveries = [];
+      if (this.qloo) {
+        discoveries = await step(
+          "Discover related culture with Qloo",
+          async () => {
+            const entities = await this.qloo.getPersonalizedRecommendations(
+              profile,
+              input.targetType,
             );
-          return entities;
-        },
-      );
+            return entities;
+          },
+        );
+      }
       const records = await this.repo.list(uid, "performances", 100);
       const analytics = analyzePerformance(records),
         recommendations = recommend(profile, analytics);
@@ -288,8 +286,8 @@ export class LearningAgent {
       };
     } catch (e) {
       execution.status = "failed";
-      execution.error =
-        e instanceof AppError ? e.message : "The learning workflow failed.";
+      execution.errorCode = e.code || "INTERNAL_ERROR";
+      execution.error = userErrorMessage(e);
       execution.durationMs = Date.now() - Date.parse(execution.createdAt);
       await save();
       throw e;
