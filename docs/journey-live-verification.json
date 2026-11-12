@@ -1,0 +1,74 @@
+{
+  "checkedAt": "2026-11-12T14:14:46.916Z",
+  "origin": "https://learnbyquiz.spiritedrobot.in",
+  "browserRequestsMocked": false,
+  "checks": [
+    {
+      "name": "Public deployment, registration form and terms consent",
+      "status": "passed",
+      "durationMs": 4653
+    },
+    {
+      "name": "Real email/password login and authenticated Journey navigation",
+      "status": "passed",
+      "durationMs": 11365
+    },
+    {
+      "name": "Live PayPal account configuration and new-user credits",
+      "status": "passed",
+      "durationMs": 557
+    },
+    {
+      "name": "Select interests, discover a favorite and save preferences through the UI",
+      "status": "failed",
+      "reason": "locator.waitFor: Timeout 20000ms exceeded.",
+      "durationMs": 20629
+    },
+    {
+      "name": "Generate a real AI quiz from the Journey page",
+      "status": "failed",
+      "reason": "Quiz generation is disabled for the completed profile",
+      "durationMs": 5004
+    },
+    {
+      "name": "Start popup, answer preservation, submit, review and saved analytics",
+      "status": "failed",
+      "reason": "Real quiz generation must succeed first",
+      "durationMs": 0
+    },
+    {
+      "name": "Mobile Journey navigation and horizontal containment",
+      "status": "passed",
+      "durationMs": 1209
+    },
+    {
+      "name": "PayPal sandbox checkout opens from the deployed Journey page",
+      "status": "failed",
+      "reason": "response.json: Protocol error (Network.getResponseBody): No resource with given identifier found",
+      "durationMs": 2725
+    },
+    {
+      "name": "No uncaught browser exceptions during the live Journey workflow",
+      "status": "passed",
+      "durationMs": 0
+    }
+  ],
+  "cleanup": "passed",
+  "limitations": [
+    "Buyer approval, capture, refunds and signed webhook delivery require an interactive sandbox buyer and have not been proven by opening checkout."
+  ],
+  "payments": {
+    "enabled": true,
+    "environment": "sandbox",
+    "initialCredits": 3,
+    "packCount": 2
+  },
+  "discovery": {
+    "status": 200,
+    "source": "none",
+    "resultCount": 0
+  },
+  "browserExceptionCount": 0,
+  "apiFailures": [],
+  "ok": false
+}

@@ -13,13 +13,12 @@
     "dev:server": "node --watch server/index.js",
     "start": "NODE_ENV=production node server/index.js",
     "test": "node --test server/tests/*.test.js",
-    "test:live": "node --test server/tests/qloo.live.js",
+    "test:live": "npm run test:live:fullstack",
     "migrate": "node scripts/migrate.js",
     "test:browser": "playwright test",
     "test:firestore": "node --test --test-concurrency=1 server/tests/firestore.integration.js server/tests/firestore.rules.integration.js",
     "format:check": "prettier --check shared server scripts src/App.jsx src/api/learning.js src/api/trivia.js src/store/zustand.jsx src/pages/Question/Question.jsx src/pages/Question/SingleQuestion.jsx src/pages/Success/Success.jsx src/components/Grid src/components/Questions/Questions.jsx src/pages/Journey playwright.config.js tests/browser",
     "verify:live": "node scripts/verify-live.js",
-    "test:live:qloo": "node --test server/tests/qloo.matrix.live.js",
     "test:emulator": "node scripts/test-emulator.js",
     "test:live:fullstack": "node --test server/tests/fullstack.live.js",
     "test:release": "node scripts/release-check.js",
@@ -27,7 +26,8 @@
     "test:live:firebase": "node --test server/tests/firebase.live.js",
     "test:live:llm": "node --test server/tests/llm.live.js",
     "test:live:trivia": "node --test server/tests/trivia.live.js",
-    "recover:credit": "node scripts/recover-credit.js"
+    "recover:credit": "node scripts/recover-credit.js",
+    "verify:journey:live": "node scripts/verify-journey-live.js"
   },
   "dependencies": {
     "ag-grid-community": "^36.3.0",

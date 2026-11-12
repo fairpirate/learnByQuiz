@@ -152,7 +152,6 @@ test(
       );
       server = createApp({
         repo,
-        qloo,
         agent,
         verifyToken: (token) => admin.verifyIdToken(token, true),
         logger: () => {},
@@ -170,25 +169,17 @@ test(
         },
       );
       await check(
-        "Real Qloo-backed profile create, read, edit and owner isolation",
+        "Real profile create, read, edit and owner isolation",
         async () => {
-          const found = await api("/taste/discover", {
-            method: "POST",
-            body: { query: "Interstellar", type: "movie" },
-          });
-          expectStatus(found, 200);
-          assert.ok(found.data.entities.length);
-          const selected = found.data.entities[0],
+          const selected = {
+              entity_id: randomUUID(),
+              name: "Interstellar",
+              subtype: "urn:entity:movie",
+            },
             body = {
               interests: ["Science fiction"],
               subjects: ["Astronomy"],
-              entities: [
-                {
-                  entity_id: selected.entity_id,
-                  name: selected.name,
-                  subtype: selected.subtype,
-                },
-              ],
+              entities: [selected],
             };
           expectStatus(
             await api("/taste/profile", { method: "PUT", body }),

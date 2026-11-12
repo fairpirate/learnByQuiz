@@ -139,6 +139,7 @@ function mockLearning(page) {
     if (path === "/api/learning/dashboard")
       return route.fulfill({
         json: {
+          capabilities: { favoriteSearch: true, relatedDiscovery: true },
           profile,
           analytics: analytics(),
           recommendations: completed

@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-01T13:10:14.740Z",
+  "checkedAt": "2026-11-12T14:13:00.087Z",
   "configuration": {
     "ok": true,
     "errors": [],
@@ -11,22 +11,17 @@
     {
       "name": "Firebase Admin target-project access",
       "status": "passed",
-      "durationMs": 963
+      "durationMs": 615
     },
     {
       "name": "Firestore target-project access",
       "status": "passed",
-      "durationMs": 1555
-    },
-    {
-      "name": "Qloo authenticated Search and Insights",
-      "status": "passed",
-      "durationMs": 2084
+      "durationMs": 1843
     },
     {
       "name": "LLM structured function call",
       "status": "passed",
-      "durationMs": 486
+      "durationMs": 1032
     }
   ],
   "ok": true

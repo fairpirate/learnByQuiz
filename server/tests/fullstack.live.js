@@ -147,24 +147,25 @@ test(
       });
       let profile;
       await t.test(
-        "live Qloo discovery and durable editable profile",
+        "Optional discovery response and durable editable learner profile",
         async () => {
           const discovery = await api("/taste/discover", {
             method: "POST",
             body: { query: "Interstellar", type: "movie" },
           });
           expectStatus(discovery, 200);
-          assert.ok(discovery.data.entities.length);
+          assert.deepEqual(discovery.data.entities, []);
+          assert.equal(discovery.data.source, "none");
           profile = {
             interests: ["Science fiction", "Technology", "Space exploration"],
             subjects: ["Astronomy"],
-            entities: discovery.data.entities
-              .slice(0, 1)
-              .map(({ entity_id, name, subtype }) => ({
-                entity_id,
-                name,
-                subtype,
-              })),
+            entities: [
+              {
+                entity_id: randomUUID(),
+                name: "Interstellar",
+                subtype: "urn:entity:movie",
+              },
+            ],
           };
           expectStatus(
             await api("/taste/profile", { method: "PUT", body: profile }),
@@ -173,7 +174,7 @@ test(
           const saved = await api("/taste/profile");
           expectStatus(saved, 200);
           assert.equal(saved.data.profile.entities.length, 1);
-          assert.ok(saved.data.profile.entities[0].tags.length);
+          assert.equal(saved.data.profile.entities[0].name, "Interstellar");
           const other = await api("/taste/profile", { actor: actors[1] });
           expectStatus(other, 200);
           assert.equal(other.data.profile, null);
@@ -196,7 +197,8 @@ test(
           );
           const recs = await api("/taste/recommendations?type=book");
           expectStatus(recs, 200);
-          assert.ok(recs.data.entities.length);
+          assert.deepEqual(recs.data.entities, []);
+          assert.equal(recs.data.source, "none");
         },
       );
       await t.test(

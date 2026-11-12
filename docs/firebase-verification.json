@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-12T06:56:21.279Z",
+  "checkedAt": "2026-11-12T14:13:47.418Z",
   "project": "learnbyquiz-c295d",
   "checks": [
     {
@@ -11,7 +11,7 @@
       "status": "passed"
     },
     {
-      "name": "Real Qloo-backed profile create, read, edit and owner isolation",
+      "name": "Real profile create, read, edit and owner isolation",
       "status": "passed"
     },
     {

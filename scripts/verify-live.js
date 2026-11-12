@@ -9,7 +9,6 @@ import {
 import { getFirestore } from "firebase-admin/firestore";
 import { z } from "zod";
 import { inspectConfiguration, providerFailure } from "../server/readiness.js";
-import { QlooService } from "../server/services/qloo.js";
 import { LLMProvider } from "../server/services/llm.js";
 
 const report = {
@@ -83,18 +82,6 @@ if (report.configuration.ok) {
     await check("Firestore target-project access", () =>
       db.doc("learningMigrations/001_taste_learning").get(),
     );
-    await check("Qloo authenticated Search and Insights", async () => {
-      const qloo = new QlooService(),
-        entities = await qloo.searchEntities("Interstellar", "movie");
-      if (!entities.length)
-        throw Object.assign(new Error(), { code: "QLOO_EMPTY_SEARCH" });
-      const related = await qloo.getRelatedEntities(
-        [entities[0].entity_id],
-        "book",
-      );
-      if (!related.length)
-        throw Object.assign(new Error(), { code: "QLOO_EMPTY_INSIGHTS" });
-    });
     await check("LLM structured function call", () =>
       new LLMProvider().callTool(
         "verify_readiness",
@@ -117,7 +104,7 @@ if (report.configuration.ok) {
   console.error("Configuration validation failed; no live requests were made.");
 report.ok =
   report.configuration.ok &&
-  report.checks.length === 4 &&
+  report.checks.length === 3 &&
   report.checks.every((c) => c.status === "passed");
 // This report contains status metadata only, no entity payloads, account IDs, tokens or provider keys.
 await writeFile(

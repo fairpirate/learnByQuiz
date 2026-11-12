@@ -293,6 +293,10 @@ export function createApp({
     ]);
     const analytics = analyzePerformance(records);
     res.json({
+      capabilities: {
+        favoriteSearch: !!agent.qloo,
+        relatedDiscovery: !!agent.qloo,
+      },
       profile,
       analytics,
       recommendations: recommend(profile, analytics),

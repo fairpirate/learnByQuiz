@@ -46,7 +46,7 @@ function profilePayload(profile) {
   return {
     interests: profile.interests,
     subjects: profile.subjects,
-    // The server re-fetches canonical metadata; send references rather than up to 1,500 tags.
+    // Keep favorite references small; the server validates the supplied fields.
     entities: profile.entities.map(({ entity_id, name, subtype }) => ({
       entity_id,
       name,
@@ -93,6 +93,7 @@ export default function Journey() {
     [openingQuizId, setOpeningQuizId] = useState(null),
     [answers, setAnswers] = useState([]),
     [performance, setPerformance] = useState(null);
+  const discoveryEnabled = dashboard?.capabilities?.favoriteSearch === true;
   const mounted = useRef(true),
     running = useRef(false);
   async function refresh(hydrate = false) {
@@ -249,6 +250,38 @@ export default function Journey() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (!discoveryEnabled) {
+                  const name = query.trim();
+                  if (!name || profile.entities.length >= 15) return;
+                  if (
+                    profile.entities.some(
+                      (e) =>
+                        e.name.toLowerCase() === name.toLowerCase() &&
+                        e.subtype === `urn:entity:${category}`,
+                    )
+                  ) {
+                    setNotice("This favorite is already in your list.");
+                    return;
+                  }
+                  setProfile((p) => ({
+                    ...p,
+                    entities: [
+                      ...p.entities,
+                      {
+                        entity_id: crypto.randomUUID(),
+                        name,
+                        subtype: `urn:entity:${category}`,
+                        tags: [],
+                        affinity: null,
+                      },
+                    ],
+                  }));
+                  setNotice(
+                    "Favorite added. Save your preferences to use it in your learning activities.",
+                  );
+                  setQuery("");
+                  return;
+                }
                 act("search", async () => {
                   const d = await learningApi("/taste/discover", {
                     method: "POST",
@@ -284,50 +317,64 @@ export default function Journey() {
                   maxLength={500}
                   required
                 />
-                <button disabled={!!busy}>
-                  {busy === "search" ? "Searching…" : "Search"}
+                <button
+                  disabled={
+                    !!busy ||
+                    !dashboard ||
+                    (!discoveryEnabled && profile.entities.length >= 15)
+                  }
+                >
+                  {discoveryEnabled
+                    ? busy === "search"
+                      ? "Searching…"
+                      : "Search"
+                    : "Add favorite"}
                 </button>
               </div>
             </form>
             <p className="journey-muted">
-              Broad interests such as space exploration guide the AI. Select at
-              least one real entity below to supply cultural intelligence.
+              Add a favorite movie, book, artist or other interest. Your
+              favorites and selected subjects help personalize your learning
+              activities.
             </p>
-            <DataGrid
-              label="search results"
-              rows={results}
-              columns={[
-                { field: "name", headerName: "Favorite", minWidth: 180 },
-                {
-                  headerName: "Category",
-                  valueGetter: (p) => p.data.subtype.replace("urn:entity:", ""),
-                },
-                {
-                  headerName: "Select",
-                  sortable: false,
-                  filter: false,
-                  cellRenderer: ({ data: e }) => (
-                    <button
-                      disabled={
-                        !!busy ||
-                        profile.entities.some(
-                          (x) => x.entity_id === e.entity_id,
-                        ) ||
-                        profile.entities.length >= 15
-                      }
-                      onClick={() =>
-                        setProfile((p) => ({
-                          ...p,
-                          entities: [...p.entities, e],
-                        }))
-                      }
-                    >
-                      Add
-                    </button>
-                  ),
-                },
-              ]}
-            />
+            {discoveryEnabled && (
+              <DataGrid
+                label="search results"
+                rows={results}
+                columns={[
+                  { field: "name", headerName: "Favorite", minWidth: 180 },
+                  {
+                    headerName: "Category",
+                    valueGetter: (p) =>
+                      p.data.subtype.replace("urn:entity:", ""),
+                  },
+                  {
+                    headerName: "Select",
+                    sortable: false,
+                    filter: false,
+                    cellRenderer: ({ data: e }) => (
+                      <button
+                        disabled={
+                          !!busy ||
+                          profile.entities.some(
+                            (x) => x.entity_id === e.entity_id,
+                          ) ||
+                          profile.entities.length >= 15
+                        }
+                        onClick={() =>
+                          setProfile((p) => ({
+                            ...p,
+                            entities: [...p.entities, e],
+                          }))
+                        }
+                      >
+                        Add
+                      </button>
+                    ),
+                  },
+                ]}
+              />
+            )}
             <DataGrid
               label="Selected entities"
               rows={profile.entities}
@@ -415,7 +462,9 @@ export default function Journey() {
           </button>
         </div>
       </section>
-      <div className="journey-grid journey-tools">
+      <div
+        className={`journey-grid journey-tools${discoveryEnabled ? "" : " journey-tools--single"}`}
+      >
         <section className="journey-card">
           <p className="eyebrow">02 · AI learning agent</p>
           <h2>Taste-Based Learning</h2>
@@ -447,20 +496,22 @@ export default function Journey() {
                 <option value="boolean">True / false</option>
               </select>
             </label>
-            <label>
-              Discover related culture
-              <select
-                value={targetType}
-                disabled={!!busy}
-                onChange={(e) => setTargetType(e.target.value)}
-              >
-                {categories.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {discoveryEnabled && (
+              <label>
+                Discover related culture
+                <select
+                  value={targetType}
+                  disabled={!!busy}
+                  onChange={(e) => setTargetType(e.target.value)}
+                >
+                  {categories.map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
           <p className="journey-muted">
             After your first quiz, demonstrated performance sets difficulty
@@ -520,62 +571,64 @@ export default function Journey() {
             </div>
           )}
         </section>
-        <section className="journey-card">
-          <p className="eyebrow">Cultural intelligence</p>
-          <h2>Discoveries</h2>
-          <button
-            className="secondary"
-            disabled={!!busy || !dashboard?.profile}
-            onClick={() =>
-              act("discover", async () => {
-                const d = await learningApi(
-                  `/taste/recommendations?type=${targetType}`,
-                );
-                setDiscoveries(d.entities);
-              })
-            }
-          >
-            Discover related interests
-          </button>
-          {!discoveries.length && (
-            <p className="journey-muted">
-              Save your favorites, then discover real relationships.
-            </p>
-          )}
-          <DataGrid
-            label="Discoveries"
-            rows={discoveries}
-            columns={[
-              { field: "name", headerName: "Discovery", minWidth: 180 },
-              {
-                headerName: "Category",
-                valueGetter: (p) => p.data.subtype.replace("urn:entity:", ""),
-              },
-              {
-                headerName: "Tags",
-                valueGetter: (p) =>
-                  p.data.tags
-                    .slice(0, 4)
-                    .map((t) => t.name)
-                    .join(" · "),
-                minWidth: 180,
-              },
-              {
-                field: "affinity",
-                headerName: "Affinity",
-                valueFormatter: (p) =>
-                  p.value == null ? "—" : p.value.toFixed(3),
-              },
-            ]}
-          />
-          {!!discoveries.length && (
-            <p className="journey-muted">
-              Ranked by using the entity references in your saved profile. These
-              cultural relationships inform AI examples; they do not validate
-              educational facts.
-            </p>
-          )}
-        </section>
+        {discoveryEnabled && (
+          <section className="journey-card">
+            <p className="eyebrow">Cultural intelligence</p>
+            <h2>Discoveries</h2>
+            <button
+              className="secondary"
+              disabled={!!busy || !dashboard?.profile}
+              onClick={() =>
+                act("discover", async () => {
+                  const d = await learningApi(
+                    `/taste/recommendations?type=${targetType}`,
+                  );
+                  setDiscoveries(d.entities);
+                })
+              }
+            >
+              Discover related interests
+            </button>
+            {!discoveries.length && (
+              <p className="journey-muted">
+                Save your favorites, then discover real relationships.
+              </p>
+            )}
+            <DataGrid
+              label="Discoveries"
+              rows={discoveries}
+              columns={[
+                { field: "name", headerName: "Discovery", minWidth: 180 },
+                {
+                  headerName: "Category",
+                  valueGetter: (p) => p.data.subtype.replace("urn:entity:", ""),
+                },
+                {
+                  headerName: "Tags",
+                  valueGetter: (p) =>
+                    p.data.tags
+                      .slice(0, 4)
+                      .map((t) => t.name)
+                      .join(" · "),
+                  minWidth: 180,
+                },
+                {
+                  field: "affinity",
+                  headerName: "Affinity",
+                  valueFormatter: (p) =>
+                    p.value == null ? "—" : p.value.toFixed(3),
+                },
+              ]}
+            />
+            {!!discoveries.length && (
+              <p className="journey-muted">
+                Ranked by using the entity references in your saved profile.
+                These cultural relationships inform AI examples; they do not
+                validate educational facts.
+              </p>
+            )}
+          </section>
+        )}
       </div>
       {quiz && quizOpen && (
         <QuizDialog
