@@ -1,3 +1,4 @@
+import { userErrorMessage } from "../../../shared/user-errors.js";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { learningApi } from "../../api/learning";
@@ -103,7 +104,7 @@ export default function Journey() {
   }
   useEffect(() => {
     mounted.current = true;
-    refresh(true).catch((e) => setError(e.message));
+    refresh(true).catch((e) => setError(userErrorMessage(e)));
     return () => {
       mounted.current = false;
     };
@@ -134,7 +135,7 @@ export default function Journey() {
     try {
       await fn();
     } catch (e) {
-      if (mounted.current) setError(e.message);
+      if (mounted.current) setError(userErrorMessage(e));
       if (label.startsWith("agent")) {
         // Fetch the final failed trace even when the last polling tick preceded failure.
         try {
@@ -503,10 +504,19 @@ export default function Journey() {
                         ? `${(p.data.durationMs / 1000).toFixed(1)}s`
                         : "Running",
                   },
-                  { field: "error", headerName: "Details", minWidth: 170 },
+                  {
+                    headerName: "Details",
+                    minWidth: 170,
+                    valueGetter: (p) =>
+                      p.data.error
+                        ? userErrorMessage({ code: p.data.errorCode })
+                        : "",
+                  },
                 ]}
               />
-              {executions[0].error && <p>{executions[0].error}</p>}
+              {executions[0].error && (
+                <p>{userErrorMessage({ code: executions[0].errorCode })}</p>
+              )}
             </div>
           )}
         </section>

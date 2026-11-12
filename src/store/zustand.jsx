@@ -1,3 +1,4 @@
+import { userErrorMessage } from "../../shared/user-errors.js";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { loadTriviaQuestions } from "../api/trivia";
@@ -37,7 +38,8 @@ const useQuestionStore = create(
               set({ question: questions, error: null });
           })
           .catch((error) => {
-            if (version === requestVersion) set({ error: error.message });
+            if (version === requestVersion)
+              set({ error: userErrorMessage(error) });
           })
           .finally(() => {
             if (version === requestVersion) {

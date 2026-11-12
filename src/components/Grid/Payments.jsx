@@ -1,3 +1,4 @@
+import { userErrorMessage } from "../../../shared/user-errors.js";
 import { useEffect, useRef, useState } from "react";
 import { learningApi } from "../../api/learning";
 import { auth } from "../../config/firebase";
@@ -24,7 +25,7 @@ export default function Payments({ revision = "" }) {
       await fn();
       await refresh();
     } catch (e) {
-      setError(e.message);
+      setError(userErrorMessage(e));
     } finally {
       running.current = false;
       setBusy(false);
@@ -45,7 +46,7 @@ export default function Payments({ revision = "" }) {
     );
   }
   useEffect(() => {
-    refresh().catch((e) => setError(e.message));
+    refresh().catch((e) => setError(userErrorMessage(e)));
   }, [revision]);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search),
@@ -94,7 +95,7 @@ export default function Payments({ revision = "" }) {
           <strong>
             {account.enabled
               ? `${account.wallet.balance} credits available · ${account.environment === "sandbox" ? "PayPal sandbox — test payments only" : "PayPal live payments"}`
-              : "Checkout is not enabled. AI learning currently uses the existing free workflow."}
+              : "Checkout is unavailable right now. You can continue using AI learning for free."}
           </strong>
         </p>
       )}
@@ -150,7 +151,7 @@ export default function Payments({ revision = "" }) {
       <h3>Payment history</h3>
       <p className="journey-muted">
         If checkout was interrupted, use Check payment. Credits are added once
-        after PayPal confirms capture. Contact the operator with the payment ID
+        after PayPal confirms your payment. Contact support with the payment ID
         for refund support.
       </p>
       <DataGrid

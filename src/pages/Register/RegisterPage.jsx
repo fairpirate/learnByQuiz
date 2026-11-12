@@ -1,3 +1,4 @@
+import { userErrorMessage } from "../../../shared/user-errors.js";
 import RegisterForm from "../../components/Form/RegisterForm";
 import { handleRegister } from "../../api/firebase";
 import { useNavigate, useActionData, useNavigation } from "react-router-dom";
@@ -20,9 +21,8 @@ function RegisterPage() {
   return (
     <AnimateProvider>
       {data?.type === "ERROR" && (
-        <p className="text-rose-700 text-xs font-bold mb-3">
-          {" "}
-          Error : {data.msg}
+        <p role="alert" className="text-rose-700 text-xs font-bold mb-3">
+          {data.msg}
         </p>
       )}
 
@@ -33,7 +33,7 @@ function RegisterPage() {
 
 export async function action({ request }) {
   const formData = await request.formData();
-  const email = formData.get("email").trim();
+  const email = String(formData.get("email") || "").trim();
   const password = formData.get("password");
   const confirmPwd = formData.get("confirmPw");
   const terms = formData.get("terms");
@@ -44,18 +44,23 @@ export async function action({ request }) {
       msg: "Please agree to the Privacy Policy and Terms & Conditions before signing up.",
     };
 
+  if (!email || !password)
+    return {
+      type: "ERROR",
+      msg: userErrorMessage({ code: "AUTH_FIELDS_REQUIRED" }),
+    };
+
   if (password !== confirmPwd)
     return {
       type: "ERROR",
-      msg: "Firebase: Error (Password and confirm password must match).",
+      msg: userErrorMessage({ code: "PASSWORD_MISMATCH" }),
     };
 
   try {
     await handleRegister(email, password);
     return { type: "SUCCESS" };
   } catch (error) {
-    console.log(error);
-    return { type: "ERROR", msg: error.message };
+    return { type: "ERROR", msg: userErrorMessage(error) };
   }
 }
 

@@ -1,3 +1,4 @@
+import { userErrorMessage } from "../../shared/user-errors.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { AppError } from "../errors.js";
@@ -115,8 +116,8 @@ export class LearningAgent {
       } catch (e) {
         s.status = "failed";
         s.durationMs = Date.now() - Date.parse(s.startedAt);
-        s.error =
-          e instanceof AppError ? e.message : "The step could not complete.";
+        s.errorCode = e.code || "INTERNAL_ERROR";
+        s.error = userErrorMessage(e);
         throw e;
       }
     };
@@ -285,8 +286,8 @@ export class LearningAgent {
       };
     } catch (e) {
       execution.status = "failed";
-      execution.error =
-        e instanceof AppError ? e.message : "The learning workflow failed.";
+      execution.errorCode = e.code || "INTERNAL_ERROR";
+      execution.error = userErrorMessage(e);
       execution.durationMs = Date.now() - Date.parse(execution.createdAt);
       await save();
       throw e;

@@ -17,6 +17,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
+COPY shared ./shared
 COPY server ./server
 COPY scripts ./scripts
 USER node

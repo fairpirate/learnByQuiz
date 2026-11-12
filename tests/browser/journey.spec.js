@@ -606,3 +606,141 @@ test("PayPal pack checkout, return capture, payment recovery and filtering work"
   ).toBeVisible();
   expect(captureCalls).toBe(2);
 });
+
+test("account errors explain how to recover without showing Firebase diagnostics", async ({
+  page,
+}) => {
+  await page.route("https://identitytoolkit.googleapis.com/**", (route) =>
+    route.fulfill({
+      status: 400,
+      json: {
+        error: {
+          code: 400,
+          message: route.request().url().includes("accounts:signUp")
+            ? "EMAIL_EXISTS"
+            : "INVALID_LOGIN_CREDENTIALS",
+        },
+      },
+    }),
+  );
+  await page.goto("/login");
+  await page.getByLabel("Email", { exact: true }).fill("learner@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("wrong-password");
+  await page.getByRole("button", { name: "Sign In", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Check your email address and password",
+  );
+  await expect(page.getByRole("alert")).not.toContainText(
+    /Firebase|auth\/|INVALID_LOGIN_CREDENTIALS/,
+  );
+  await page.getByRole("link", { name: "Sign Up", exact: true }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Learner");
+  await page.getByLabel("Email", { exact: true }).fill("learner@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("safe-password");
+  await page
+    .getByLabel("Confirm Password", { exact: true })
+    .fill("different-password");
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Sign Up", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Your passwords don't match",
+  );
+  await page
+    .getByLabel("Confirm Password", { exact: true })
+    .fill("safe-password");
+  await page.getByRole("button", { name: "Sign Up", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "An account already uses this email address",
+  );
+  await expect(page.getByRole("alert")).not.toContainText(
+    /Firebase|auth\/|EMAIL_EXISTS/,
+  );
+});
+
+test("Journey translates API, connection and saved activity errors into helpful messages", async ({
+  page,
+}) => {
+  await mockLearning(page);
+  let failure = "configured";
+  await page.route(
+    "http://127.0.0.1:4173/api/learning/dashboard",
+    async (route) => {
+      if (failure === "network") return route.abort("failed");
+      if (failure === "html")
+        return route.fulfill({
+          status: 502,
+          contentType: "text/html",
+          body: "Nginx upstream stack trace at server.js",
+        });
+      if (failure === "trace")
+        return route.fulfill({
+          json: {
+            profile: null,
+            analytics: {
+              attempts: 0,
+              accuracy: null,
+              subjects: {},
+              difficulties: {},
+              weakSubjects: [],
+              progress: [],
+            },
+            recommendations: [],
+            quizzes: [],
+            plans: [],
+            executions: [
+              {
+                status: "failed",
+                error: "Configure NVIDIA_API_KEY. Firebase permission denied",
+                errorCode: "LLM_NOT_CONFIGURED",
+                steps: [
+                  {
+                    name: "Create quiz",
+                    status: "failed",
+                    error: "Raw schema validation at private.js",
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      return route.fulfill({
+        status: 503,
+        json: {
+          error: {
+            code: "LLM_NOT_CONFIGURED",
+            message: "Configure NVIDIA_API_KEY. Firebase permission denied",
+            requestId: "test-request",
+          },
+        },
+      });
+    },
+  );
+  await signIn(page);
+  await page
+    .getByRole("link", { name: "AI Learning Journey", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "AI learning isn't available yet",
+  );
+  failure = "network";
+  await page.getByRole("button", { name: "Retry dashboard" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Check your internet connection",
+  );
+  failure = "html";
+  await page.getByRole("button", { name: "Retry dashboard" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "temporarily unavailable",
+  );
+  failure = "trace";
+  await page.getByRole("button", { name: "Retry dashboard" }).click();
+  await expect(
+    page.getByRole("region", { name: "Agent execution steps" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("AI learning isn't available yet.", { exact: false }),
+  ).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(
+    /NVIDIA_API_KEY|schema validation|permission denied|private\.js|server\.js|Firebase/,
+  );
+});

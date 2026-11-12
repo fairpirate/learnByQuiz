@@ -25,6 +25,7 @@ function RegisterForm({ isSubmitting: loading }) {
           type="text"
           required
           autoComplete="off"
+          id="name"
           name="name"
           placeholder="Enter your name"
           className="bg-neutral-50 ring-[1px] ring-gray-200 rounded-lg p-2 md:p-3 placeholder:text-gray-300 text-xs md:text-sm focus:border-none placeholder:text-xs md:placeholder:text-sm focus:outline-none focus:ring-[1px] focus:ring-green-400/80 mb-5"
@@ -39,6 +40,7 @@ function RegisterForm({ isSubmitting: loading }) {
           type="email"
           required
           autoComplete="off"
+          id="email"
           name="email"
           placeholder="Enter your email"
           className="bg-neutral-50 ring-[1px] ring-gray-200 rounded-lg p-2 md:p-3 placeholder:text-gray-300 text-xs md:text-sm focus:border-none placeholder:text-xs md:placeholder:text-sm focus:outline-none focus:ring-[1px] focus:ring-green-400/80 "
@@ -54,6 +56,7 @@ function RegisterForm({ isSubmitting: loading }) {
           type="password"
           required
           className="bg-neutral-50 ring-[1px] ring-gray-200 rounded-lg p-2 md:p-3 placeholder:text-gray-300 text-xs md:text-sm focus:border-none placeholder:text-xs md:placeholder:text-sm focus:outline-none focus:ring-[1px] focus:ring-green-400/80 mb-5"
+          id="password"
           name="password"
           placeholder="Enter your password"
         />
@@ -67,6 +70,7 @@ function RegisterForm({ isSubmitting: loading }) {
           type="password"
           required
           className="bg-neutral-50 ring-[1px] ring-gray-200 rounded-lg p-2 md:p-3 placeholder:text-gray-300 text-xs md:text-sm focus:border-none placeholder:text-xs md:placeholder:text-sm focus:outline-none focus:ring-[1px] focus:ring-green-400/80 "
+          id="confirmPw"
           name="confirmPw"
           placeholder="Enter your password"
         />

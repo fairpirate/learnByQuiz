@@ -1,3 +1,4 @@
+import { userErrorMessage } from "../shared/user-errors.js";
 import express from "express";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
@@ -27,7 +28,7 @@ export function createApp({
     res.status(429).json({
       error: {
         code: "RATE_LIMITED",
-        message: "Too many requests. Please try again later.",
+        message: userErrorMessage({ code: "RATE_LIMITED" }),
         requestId: req.requestId,
       },
     });
@@ -380,41 +381,35 @@ export function createApp({
     });
   }
   app.use((err, req, res, _next) => {
-    if ([4, 5, 7, 14].includes(err.code))
-      return res.status(503).json({
-        error: {
-          code: "LEARNING_STORAGE_UNAVAILABLE",
-          message:
-            "Learning storage is currently unavailable. The administrator must check the database and its permissions.",
-          requestId: req.requestId,
-        },
-      });
-    const validation = err instanceof ZodError;
-    if (err.type === "entity.parse.failed")
-      return res.status(400).json({
-        error: {
-          code: "MALFORMED_JSON",
-          message: "The request body must contain valid JSON.",
-          requestId: req.requestId,
-        },
-      });
-    if (err.type === "entity.too.large")
-      return res.status(413).json({
-        error: {
-          code: "PAYLOAD_TOO_LARGE",
-          message: "The request body exceeds the allowed size.",
-          requestId: req.requestId,
-        },
-      });
-    const status = validation ? 400 : err.status || 500;
+    const storage = [4, 5, 7, 14].includes(err.code);
+    const code = storage
+      ? "LEARNING_STORAGE_UNAVAILABLE"
+      : err instanceof ZodError
+        ? "INVALID_INPUT"
+        : err.type === "entity.parse.failed"
+          ? "MALFORMED_JSON"
+          : err.type === "entity.too.large"
+            ? "PAYLOAD_TOO_LARGE"
+            : err.code || "INTERNAL_ERROR";
+    const status = storage
+      ? 503
+      : err instanceof ZodError || err.type === "entity.parse.failed"
+        ? 400
+        : err.type === "entity.too.large"
+          ? 413
+          : err.status || 500;
+    logger(
+      JSON.stringify({
+        requestId: req.requestId,
+        level: "error",
+        code,
+        status,
+      }),
+    );
     res.status(status).json({
       error: {
-        code: validation ? "INVALID_INPUT" : err.code || "INTERNAL_ERROR",
-        message: validation
-          ? "Check the supplied fields and try again."
-          : status >= 500 && !(err instanceof AppError)
-            ? "The request could not be completed."
-            : err.message,
+        code,
+        message: userErrorMessage({ code, status }),
         requestId: req.requestId,
       },
     });

@@ -81,13 +81,13 @@ test("persistent throttling is bounded; upstream outages and unavailable setting
     [() => Response.json({ response_code: 2 }), /settings are invalid/],
     [
       () => Response.json({ response_code: 0, results: [{}] }),
-      /invalid response/,
+      /load the quiz questions/,
     ],
-    [() => new Response("not JSON"), /invalid response/],
-    [() => Response.json(null), /invalid response/],
+    [() => new Response("not JSON"), /load the quiz questions/],
+    [() => Response.json(null), /load the quiz questions/],
     [
       () => Response.json({ response_code: 0, results: [null] }),
-      /invalid response/,
+      /load the quiz questions/,
     ],
   ]) {
     let attempts = 0;
@@ -106,7 +106,7 @@ test("failed trivia requests release the queue and can be retried", async () => 
     if (++calls === 1) throw new TypeError("network failed");
     return success();
   });
-  await assert.rejects(load("?amount=5"), /Check your connection/);
+  await assert.rejects(load("?amount=5"), /Check your internet connection/);
   assert.deepEqual(await load("?amount=5"), [question]);
   assert.deepEqual(waits, [5200]);
 });
