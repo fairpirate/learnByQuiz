@@ -1,3 +1,5 @@
+> PayPal AI Hackathon update: this app now includes AG Grid Community across the learning workspace and PayPal checkout for AI generation credits. See [current integration guide](docs/paypal-and-grid.md) for setup, architecture, verification and a demo flow. The original Qloo submission below is historical and needs adapting before submitting to the PayPal hackathon.
+
 ## Inspiration
 
 Learning becomes more engaging when it connects to something we already care about. A learner who enjoys science fiction may be curious about astronomy, while someone interested in gaming may find an introduction to algorithms more approachable through familiar examples.

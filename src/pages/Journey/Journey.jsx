@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { learningApi } from "../../api/learning";
+import DataGrid from "../../components/Grid/DataGrid";
+import QuizGrid from "../../components/Grid/QuizGrid";
+import PreferenceGrid from "../../components/Grid/PreferenceGrid";
+import Payments from "../../components/Grid/Payments";
 const categories = [
   ["movie", "Movies"],
   ["tv_show", "Television"],
@@ -203,21 +207,13 @@ export default function Journey() {
           <h2>My Taste Profile</h2>
           <fieldset disabled={!!busy}>
             <legend>What do you enjoy?</legend>
-            <div className="journey-chips">
-              {interestOptions.map((x) => (
-                <label
-                  key={x}
-                  className={profile.interests.includes(x) ? "selected" : ""}
-                >
-                  <input
-                    type="checkbox"
-                    checked={profile.interests.includes(x)}
-                    onChange={() => toggle("interests", x)}
-                  />
-                  {x}
-                </label>
-              ))}
-            </div>
+            <PreferenceGrid
+              label="Interests"
+              options={interestOptions}
+              selected={profile.interests}
+              disabled={!!busy}
+              onToggle={(name) => toggle("interests", name)}
+            />
           </fieldset>
           <form
             onSubmit={(e) => {
@@ -266,64 +262,80 @@ export default function Journey() {
             Broad interests such as space exploration guide the AI. Select at
             least one real Qloo entity below to supply cultural intelligence.
           </p>
-          <ul className="journey-results">
-            {results.map((e) => (
-              <li key={e.entity_id}>
-                <span>
-                  <strong>{e.name}</strong>
-                  <small>{e.subtype.replace("urn:entity:", "")}</small>
-                </span>
-                <button
-                  disabled={
-                    !!busy ||
-                    profile.entities.some((x) => x.entity_id === e.entity_id) ||
-                    profile.entities.length >= 15
-                  }
-                  onClick={() =>
-                    setProfile((p) => ({ ...p, entities: [...p.entities, e] }))
-                  }
-                >
-                  Add
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div className="journey-chips" aria-label="Selected Qloo entities">
-            {profile.entities.map((e) => (
-              <button
-                key={e.entity_id}
-                disabled={!!busy}
-                onClick={() =>
-                  setProfile((p) => ({
-                    ...p,
-                    entities: p.entities.filter(
-                      (x) => x.entity_id !== e.entity_id,
-                    ),
-                  }))
-                }
-                aria-label={`Remove ${e.name}`}
-              >
-                {e.name} ×
-              </button>
-            ))}
-          </div>
+          <DataGrid
+            label="Qloo search results"
+            rows={results}
+            columns={[
+              { field: "name", headerName: "Favorite", minWidth: 180 },
+              {
+                headerName: "Category",
+                valueGetter: (p) => p.data.subtype.replace("urn:entity:", ""),
+              },
+              {
+                headerName: "Select",
+                sortable: false,
+                filter: false,
+                cellRenderer: ({ data: e }) => (
+                  <button
+                    disabled={
+                      !!busy ||
+                      profile.entities.some(
+                        (x) => x.entity_id === e.entity_id,
+                      ) ||
+                      profile.entities.length >= 15
+                    }
+                    onClick={() =>
+                      setProfile((p) => ({
+                        ...p,
+                        entities: [...p.entities, e],
+                      }))
+                    }
+                  >
+                    Add
+                  </button>
+                ),
+              },
+            ]}
+          />
+          <DataGrid
+            label="Selected Qloo entities"
+            rows={profile.entities}
+            searchable={false}
+            exportable={false}
+            columns={[
+              { field: "name", headerName: "Selected favorite", minWidth: 180 },
+              {
+                headerName: "Action",
+                filter: false,
+                sortable: false,
+                cellRenderer: ({ data: e }) => (
+                  <button
+                    aria-label={`Remove ${e.name}`}
+                    disabled={!!busy}
+                    onClick={() =>
+                      setProfile((p) => ({
+                        ...p,
+                        entities: p.entities.filter(
+                          (x) => x.entity_id !== e.entity_id,
+                        ),
+                      }))
+                    }
+                  >
+                    Remove
+                  </button>
+                ),
+              },
+            ]}
+          />
           <fieldset disabled={!!busy}>
             <legend>What would you like to learn?</legend>
-            <div className="journey-chips">
-              {subjects.map((x) => (
-                <label
-                  key={x}
-                  className={profile.subjects.includes(x) ? "selected" : ""}
-                >
-                  <input
-                    type="checkbox"
-                    checked={profile.subjects.includes(x)}
-                    onChange={() => toggle("subjects", x)}
-                  />
-                  {x}
-                </label>
-              ))}
-            </div>
+            <PreferenceGrid
+              label="Learning subjects"
+              options={subjects}
+              selected={profile.subjects}
+              disabled={!!busy}
+              onToggle={(name) => toggle("subjects", name)}
+            />
           </fieldset>
           <div className="journey-actions">
             <button
@@ -441,26 +453,23 @@ export default function Journey() {
             {executions[0] && (
               <div className="journey-trace" aria-live="polite">
                 <h3>Latest agent execution · {executions[0].status}</h3>
-                <ol>
-                  {executions[0].steps.map((s, i) => (
-                    <li key={i}>
-                      <span>
-                        {s.status === "completed"
-                          ? "✓"
-                          : s.status === "failed"
-                            ? "×"
-                            : "…"}{" "}
-                        {s.name}
-                      </span>
-                      <small>
-                        {s.durationMs != null
-                          ? `${(s.durationMs / 1000).toFixed(1)}s`
-                          : s.status}
-                      </small>
-                      {s.error && <p>{s.error}</p>}
-                    </li>
-                  ))}
-                </ol>
+                <DataGrid
+                  label="Agent execution steps"
+                  rows={executions[0].steps}
+                  searchable={false}
+                  columns={[
+                    { field: "name", headerName: "Step", minWidth: 200 },
+                    { field: "status", headerName: "Status" },
+                    {
+                      headerName: "Duration",
+                      valueGetter: (p) =>
+                        p.data.durationMs != null
+                          ? `${(p.data.durationMs / 1000).toFixed(1)}s`
+                          : "Running",
+                    },
+                    { field: "error", headerName: "Details", minWidth: 170 },
+                  ]}
+                />
                 {executions[0].error && <p>{executions[0].error}</p>}
               </div>
             )}
@@ -487,25 +496,32 @@ export default function Journey() {
                 Save your favorites, then discover real relationships from Qloo.
               </p>
             )}
-            <ul className="journey-discoveries">
-              {discoveries.map((e) => (
-                <li key={e.entity_id}>
-                  <strong>{e.name}</strong>
-                  <p>
-                    {e.tags
+            <DataGrid
+              label="Qloo discoveries"
+              rows={discoveries}
+              columns={[
+                { field: "name", headerName: "Discovery", minWidth: 180 },
+                {
+                  headerName: "Category",
+                  valueGetter: (p) => p.data.subtype.replace("urn:entity:", ""),
+                },
+                {
+                  headerName: "Tags",
+                  valueGetter: (p) =>
+                    p.data.tags
                       .slice(0, 4)
                       .map((t) => t.name)
-                      .join(" · ")}
-                  </p>
-                  <small>
-                    Qloo · {e.subtype.replace("urn:entity:", "")}
-                    {e.affinity !== null
-                      ? ` · affinity ${e.affinity.toFixed(3)}`
-                      : ""}
-                  </small>
-                </li>
-              ))}
-            </ul>
+                      .join(" · "),
+                  minWidth: 180,
+                },
+                {
+                  field: "affinity",
+                  headerName: "Affinity",
+                  valueFormatter: (p) =>
+                    p.value == null ? "—" : p.value.toFixed(3),
+                },
+              ]}
+            />
             {!!discoveries.length && (
               <p className="journey-muted">
                 Ranked by Qloo using the entity references in your saved
@@ -516,6 +532,7 @@ export default function Journey() {
           </section>
         </div>
       </div>
+      <Payments revision={busy} />
       {quiz && (
         <section className="journey-card journey-active">
           <p className="eyebrow">AI-generated educational content</p>
@@ -527,6 +544,17 @@ export default function Journey() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (
+                  quiz.questions.some(
+                    (q, i) =>
+                      !Number.isInteger(answers[i]) ||
+                      answers[i] < 0 ||
+                      answers[i] >= q.options.length,
+                  )
+                ) {
+                  setError("Answer every question before submitting.");
+                  return;
+                }
                 act("submit", async () => {
                   const d = await learningApi("/agents/analyze-performance", {
                     method: "POST",
@@ -537,31 +565,18 @@ export default function Journey() {
                 });
               }}
             >
-              {quiz.questions.map((q, i) => (
-                <fieldset key={i} disabled={!!busy}>
-                  <legend>
-                    {i + 1}. {q.question}
-                  </legend>
-                  {q.options.map((option, j) => (
-                    <label className="journey-option" key={j}>
-                      <input
-                        required
-                        type="radio"
-                        name={`q${i}`}
-                        checked={answers[i] === j}
-                        onChange={() =>
-                          setAnswers((a) => {
-                            const copy = [...a];
-                            copy[i] = j;
-                            return copy;
-                          })
-                        }
-                      />
-                      {option}
-                    </label>
-                  ))}
-                </fieldset>
-              ))}
+              <QuizGrid
+                questions={quiz.questions}
+                answers={answers}
+                disabled={!!busy}
+                onAnswer={(i, j) =>
+                  setAnswers((a) => {
+                    const copy = [...a];
+                    copy[i] = j;
+                    return copy;
+                  })
+                }
+              />
               <button
                 disabled={
                   !!busy ||
@@ -576,19 +591,11 @@ export default function Journey() {
               <h3>
                 {performance.accuracy}% correct · {performance.durationSeconds}s
               </h3>
-              {performance.items.map((item, i) => (
-                <div className="journey-review" key={i}>
-                  <h4>
-                    {item.correct ? "✓" : "×"} {item.question}
-                  </h4>
-                  <p>Your answer: {quiz.questions[i].options[item.answer]}</p>
-                  <p>
-                    Correct answer:{" "}
-                    {quiz.questions[i].options[item.correctIndex]}
-                  </p>
-                  <p>{item.explanation}</p>
-                </div>
-              ))}
+              <QuizGrid
+                questions={quiz.questions}
+                answers={answers}
+                performance={performance}
+              />
               <button
                 className="secondary"
                 onClick={() => {
@@ -631,66 +638,89 @@ export default function Journey() {
             </p>
           )}
           <h3>Subject performance</h3>
-          {Object.entries(dashboard?.analytics.subjects || {}).map(
-            ([topic, s]) => (
-              <div className="journey-progress" key={topic}>
-                <label htmlFor={`progress-${topic}`}>
-                  {topic} · {s.accuracy}% ({s.correct}/{s.total})
-                </label>
-                <progress
-                  id={`progress-${topic}`}
-                  max="100"
-                  value={s.accuracy}
-                />
-              </div>
-            ),
-          )}
+          <DataGrid
+            label="Subject performance"
+            rows={Object.entries(dashboard?.analytics.subjects || {}).map(
+              ([topic, stats]) => ({ topic, ...stats }),
+            )}
+            columns={[
+              { field: "topic", headerName: "Subject", minWidth: 160 },
+              { field: "accuracy", headerName: "Accuracy %" },
+              { field: "correct", headerName: "Correct" },
+              { field: "total", headerName: "Questions" },
+            ]}
+          />
           <h3>Difficulty performance</h3>
-          {Object.entries(dashboard?.analytics.difficulties || {}).map(
-            ([level, s]) => (
-              <p key={level}>
-                {level}: {s.accuracy}% · {s.total} questions
-              </p>
-            ),
-          )}
+          <DataGrid
+            label="Difficulty performance"
+            rows={Object.entries(dashboard?.analytics.difficulties || {}).map(
+              ([level, stats]) => ({ level, ...stats }),
+            )}
+            columns={[
+              { field: "level", headerName: "Difficulty" },
+              { field: "accuracy", headerName: "Accuracy %" },
+              { field: "total", headerName: "Questions" },
+            ]}
+          />
           <h3>Weak subjects</h3>
           <p>
             {dashboard?.analytics.weakSubjects.map((s) => s.topic).join(", ") ||
               "No revision areas identified yet."}
           </p>
           <h3>Recent progress</h3>
-          <div className="journey-progress-list">
-            {dashboard?.analytics.progress.map((p, i) => (
-              <p key={i}>
-                {p.subject}: {p.accuracy}%{" "}
-                <small>{new Date(p.at).toLocaleDateString()}</small>
-              </p>
-            ))}
-          </div>
+          <DataGrid
+            label="Recent progress"
+            rows={dashboard?.analytics.progress || []}
+            columns={[
+              { field: "subject", headerName: "Subject" },
+              { field: "accuracy", headerName: "Accuracy %" },
+              {
+                field: "at",
+                headerName: "Date",
+                minWidth: 160,
+                valueFormatter: (p) => new Date(p.value).toLocaleString(),
+              },
+            ]}
+          />
         </section>
         <section className="journey-card">
           <p className="eyebrow">Your next step</p>
           <h2>Personalized Recommendations</h2>
-          {dashboard?.recommendations.map((r, i) => (
-            <article className="journey-review" key={i}>
-              <h3>
-                {r.activity === "revision" ? "Revise" : "Explore"} {r.topic}
-              </h3>
-              <p>{r.explanation}</p>
-              <small>Performance engine · {r.difficulty}</small>
-            </article>
-          ))}
+          <DataGrid
+            label="Personalized recommendations"
+            rows={dashboard?.recommendations || []}
+            columns={[
+              { field: "topic", headerName: "Topic", minWidth: 150 },
+              { field: "activity", headerName: "Activity" },
+              { field: "difficulty", headerName: "Difficulty" },
+              {
+                field: "explanation",
+                headerName: "Why this activity",
+                minWidth: 260,
+              },
+            ]}
+          />
           <h3>Saved learning plans · AI-generated</h3>
           {!dashboard?.plans.length && (
             <p className="journey-muted">Your plans will appear here.</p>
           )}
-          {dashboard?.plans.slice(0, 3).map((p) => (
-            <article className="journey-review" key={p.id}>
-              <h4>{p.title}</h4>
-              <p>{p.explanation}</p>
-              <small>{p.concepts.join(" · ")}</small>
-            </article>
-          ))}
+          <DataGrid
+            label="Saved learning plans"
+            rows={dashboard?.plans || []}
+            columns={[
+              { field: "title", headerName: "Plan", minWidth: 160 },
+              {
+                field: "explanation",
+                headerName: "Learning context",
+                minWidth: 240,
+              },
+              {
+                headerName: "Concepts",
+                valueGetter: (p) => p.data.concepts.join(" · "),
+                minWidth: 180,
+              },
+            ]}
+          />
         </section>
       </div>
       <section className="journey-card">
@@ -702,22 +732,30 @@ export default function Journey() {
             quiz to explore another set of questions.
           </p>
         )}
-        <ul className="journey-results">
-          {dashboard?.quizzes.map((q) => (
-            <li key={q.id}>
-              <span>
-                <strong>{q.title}</strong>
-                <small>
-                  {q.subject} · {q.difficulty} ·{" "}
-                  {q.completed ? "Completed" : "Ready to learn"}
-                </small>
-              </span>
-              <button disabled={!!busy} onClick={() => start(q.id)}>
-                {q.completed ? "Review" : "Start quiz"}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <DataGrid
+          label="Quiz library"
+          rows={dashboard?.quizzes || []}
+          columns={[
+            { field: "title", headerName: "Quiz", minWidth: 200 },
+            { field: "subject", headerName: "Subject" },
+            { field: "difficulty", headerName: "Difficulty" },
+            {
+              headerName: "Status",
+              valueGetter: (p) =>
+                p.data.completed ? "Completed" : "Ready to learn",
+            },
+            {
+              headerName: "Action",
+              filter: false,
+              sortable: false,
+              cellRenderer: ({ data: q }) => (
+                <button disabled={!!busy} onClick={() => start(q.id)}>
+                  {q.completed ? "Review" : "Start quiz"}
+                </button>
+              ),
+            },
+          ]}
+        />
       </section>
     </div>
   );

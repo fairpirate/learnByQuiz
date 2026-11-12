@@ -48,7 +48,7 @@ function SingleQuestion() {
   };
 
   return (
-    <AnimateProvider className="max-w-xl mx-auto">
+    <AnimateProvider className="max-w-4xl mx-auto">
       <div className="flex max-w-fit flex-col ml-auto space-x-3 mb-10">
         <TimeStamp />
       </div>

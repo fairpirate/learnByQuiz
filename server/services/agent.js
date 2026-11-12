@@ -86,11 +86,11 @@ export class LearningAgent {
     this.qloo = qloo;
     this.llm = llm;
   }
-  async run(uid, input, planOnly = false) {
+  async run(uid, input, planOnly = false, executionId = randomUUID()) {
     const deadline = Date.now() + 180000;
     const callTool = (...args) => this.llm.callTool(...args, { deadline });
     const execution = {
-      id: randomUUID(),
+      id: executionId,
       status: "running",
       createdAt: new Date().toISOString(),
       steps: [],
