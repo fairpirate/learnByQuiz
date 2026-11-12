@@ -88,6 +88,14 @@ const useQuestionStore = create(
           page: 1,
         }));
       },
+      startQuiz: () =>
+        set({
+          page: 1,
+          userAnswer: [],
+          trueAnswer: 0,
+          falseAnswer: 0,
+          totalTime: Date.now() + 3 * 60000,
+        }),
       setTimeStamp: (time) =>
         set((state) => ({
           ...state,

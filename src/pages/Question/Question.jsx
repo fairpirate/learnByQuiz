@@ -7,6 +7,7 @@ function Question() {
   const {
     fetchQuestion,
     resetQuestion,
+    startQuiz,
     question: questionData,
     error,
     loading,
@@ -70,9 +71,10 @@ function Question() {
       </div>
 
       <button
-        disabled={!questionData}
+        disabled={loading || !questionData.length}
         onClick={() => {
-          navigate(`/question/1`);
+          startQuiz();
+          navigate("/question/1");
         }}
         className="flex w-full rounded-full bg-green-400 cursor-pointer disabled:bg-green-400/50 disabled:cursor-not-allowed p-1 justify-center font-semibold md:font-bold text-base md:text-lg text-center mt-10 text-white hover:bg-green-400"
       >

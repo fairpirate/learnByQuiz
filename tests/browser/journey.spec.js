@@ -321,6 +321,99 @@ test("classic quizzes remain available and score against the real question count
   await expect(page.getByRole("button", { name: "Begin Test" })).toBeVisible();
 });
 
+test("classic Start restarts completed and partial attempts, including persisted state", async ({
+  page,
+}) => {
+  let requests = 0;
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.route("https://opentdb.com/api.php**", (route) => {
+    requests++;
+    return route.fulfill({
+      json: {
+        response_code: 0,
+        results: Array.from({ length: 3 }, (_, i) => ({
+          category: "Science",
+          difficulty: "easy",
+          question: `Attempt ${requests}, question ${i + 1}?`,
+          correct_answer: "Correct",
+          incorrect_answers: ["Wrong A", "Wrong B", "Wrong C"],
+        })),
+      },
+    });
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Begin Test" }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  for (let i = 0; i < 3; i++)
+    await page
+      .getByRole("button", { name: "Choose Correct", exact: true })
+      .click();
+  await expect(
+    page.getByRole("heading", { name: "100", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Classic Quiz", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Start", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(page).toHaveURL(/\/question\/1$/);
+  await expect(
+    page.getByRole("heading", {
+      name: "1. Attempt 1, question 1?",
+      exact: true,
+    }),
+  ).toBeVisible();
+  const initial = await page.evaluate(
+    () => JSON.parse(localStorage.getItem("question-storage")).state,
+  );
+  expect(initial.page).toBe(1);
+  expect(initial.userAnswer).toEqual([]);
+  expect(initial.trueAnswer).toBe(0);
+  expect(initial.falseAnswer).toBe(0);
+  expect(initial.totalTime).toBeGreaterThan(Date.now());
+  await page
+    .getByRole("button", { name: "Choose Wrong A", exact: true })
+    .click();
+  await page.getByRole("link", { name: "Classic Quiz", exact: true }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "1. Attempt 1, question 1?",
+      exact: true,
+    }),
+  ).toBeVisible();
+  for (let i = 0; i < 3; i++)
+    await page
+      .getByRole("button", { name: "Choose Correct", exact: true })
+      .click();
+  await expect(
+    page.getByRole("heading", { name: "100", exact: true }),
+  ).toBeVisible();
+  expect(requests).toBe(1);
+  await page.getByRole("button", { name: "Back to dashboard" }).click();
+  await page.getByRole("button", { name: "Begin Test" }).click();
+  await page
+    .getByRole("button", { name: "Start", exact: true })
+    .click({ timeout: 12000 });
+  await expect(
+    page.getByRole("heading", {
+      name: "1. Attempt 2, question 1?",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(requests).toBe(2);
+  for (let i = 0; i < 3; i++)
+    await page
+      .getByRole("button", { name: "Choose Correct", exact: true })
+      .click();
+  await expect(
+    page.getByRole("heading", { name: "100", exact: true }),
+  ).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 const classicQuestions = [
   {
     category: "Science",

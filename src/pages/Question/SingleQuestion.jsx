@@ -1,7 +1,6 @@
 import useQuestionStore from "../../store/zustand";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import TimeStamp from "../../components/TimeStamp/TimeStamp";
-import { useEffect } from "react";
 import AnimateProvider from "../../components/AnimateProvider/AnimateProvider";
 import Question from "../../components/Questions/Questions";
 
@@ -18,15 +17,10 @@ function SingleQuestion() {
 
   const { id } = useParams();
 
-  useEffect(() => {
-    if (Number(id) < page) {
-      navigate(`/question/${page}`);
-    }
-  }, [id]);
-
   const singleQuestion = allQuestion?.[page - 1];
   if (!singleQuestion)
     return <Navigate to={allQuestion.length ? "/finish" : "/"} replace />;
+  if (Number(id) !== page) return <Navigate to={`/question/${page}`} replace />;
   const { correct_answer } = singleQuestion;
 
   const handleClick = (value) => {
@@ -42,9 +36,7 @@ function SingleQuestion() {
 
     nextPage();
 
-    navigate(
-      page === allQuestion.length ? "/finish" : `/question/${Number(id) + 1}`,
-    );
+    navigate(page === allQuestion.length ? "/finish" : `/question/${page + 1}`);
   };
 
   return (
